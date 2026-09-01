@@ -1,0 +1,13 @@
+<resources>
+    <color name="navy">#0B1220</color>
+    <color name="blue">#4F7CFF</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="surface">#0B1220</color>
+    <color name="surface_raised">#121C2E</color>
+    <color name="surface_variant">#162033</color>
+    <color name="on_surface">#E8EEF9</color>
+    <color name="on_surface_variant">#A8B4C8</color>
+    <color name="outline">#3A4A63</color>
+    <color name="error">#FF8A80</color>
+    <color name="nav_bar">#0F1828</color>
+</resources>

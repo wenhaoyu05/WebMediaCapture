@@ -1,0 +1,20 @@
+---
+description: 完成代码改动后自动打签名 Release APK，无需用户提醒
+alwaysApply: true
+---
+
+# 改完即打包
+
+实现、修复或其它会进入 APK 的代码改动完成后，**不要等用户再说「打包」**，直接打签名 Release：
+
+```powershell
+$env:JAVA_HOME = "C:\Users\why\.cache\web-media-capture-toolchain\jdk\jdk-21.0.12.1+1"
+$env:PATH = "$env:JAVA_HOME\bin;" + $env:PATH
+$env:ANDROID_HOME = "C:\Users\why\.cache\web-media-capture-toolchain\android-sdk"
+$env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
+.\gradlew assembleRelease
+```
+
+- 输出：`app/build/outputs/apk/release/app-release.apk`
+- 打包失败先修再重打，不要把失败的包交给用户
+- 纯问答、只改文档/规则、或用户明确说先不要打包时跳过

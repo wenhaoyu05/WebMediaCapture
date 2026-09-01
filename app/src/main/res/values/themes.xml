@@ -1,0 +1,23 @@
+<resources>
+    <style name="Theme.WebMediaCapture" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorOnPrimary">@color/on_primary</item>
+        <item name="colorSecondary">@color/blue</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+        <item name="colorOutline">@color/outline</item>
+        <item name="colorError">@color/error</item>
+        <item name="android:statusBarColor">@color/navy</item>
+        <item name="android:navigationBarColor">@color/nav_bar</item>
+        <item name="android:windowBackground">@color/surface</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="bottomNavigationStyle">@style/Widget.WebMediaCapture.BottomNav</item>
+    </style>
+
+    <style name="Widget.WebMediaCapture.BottomNav" parent="Widget.Material3.BottomNavigationView">
+        <item name="android:background">@color/nav_bar</item>
+        <item name="itemIconTint">@color/nav_item_color</item>
+        <item name="itemTextColor">@color/nav_item_color</item>
+    </style>
+</resources>

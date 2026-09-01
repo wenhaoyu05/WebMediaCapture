@@ -1,0 +1,8 @@
+-keepattributes *Annotation*
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep class com.yausername.** { *; }
+-keep class com.webmediacapture.** { *; }
+-dontwarn com.yausername.**
+-dontwarn org.apache.**
+-dontwarn javax.lang.model.**
+-keep class org.apache.commons.compress.** { *; }

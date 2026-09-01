@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+.idea/
+.kotlin/
+.cursor/*.log
+local.properties
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+*.keystore
+/emulator-*.xml
+/ui2.xml
+/wmc_emulator_*.png
