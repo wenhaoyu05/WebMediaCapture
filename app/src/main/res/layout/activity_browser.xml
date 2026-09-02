@@ -32,7 +32,8 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/nav_home"
-                android:src="@drawable/ic_home" />
+                android:src="@drawable/ic_home"
+                android:tint="@color/on_surface" />
 
             <ImageButton
                 android:id="@+id/button_back"
@@ -40,7 +41,8 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/nav_back"
-                android:src="@drawable/ic_back" />
+                android:src="@drawable/ic_back"
+                android:tint="@color/on_surface" />
 
             <ImageButton
                 android:id="@+id/button_forward"
@@ -48,7 +50,8 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/nav_forward"
-                android:src="@drawable/ic_forward" />
+                android:src="@drawable/ic_forward"
+                android:tint="@color/on_surface" />
 
             <ImageButton
                 android:id="@+id/button_reload"
@@ -56,7 +59,8 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/nav_reload"
-                android:src="@drawable/ic_reload" />
+                android:src="@drawable/ic_reload"
+                android:tint="@color/on_surface" />
 
             <ImageButton
                 android:id="@+id/button_analyze"
@@ -64,7 +68,8 @@
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/nav_analyze"
-                android:src="@drawable/ic_analyze" />
+                android:src="@drawable/ic_analyze"
+                android:tint="@color/on_surface" />
         </LinearLayout>
 
         <LinearLayout
@@ -106,7 +111,7 @@
         android:layout_width="match_parent"
         android:layout_height="3dp"
         android:max="100"
-        android:progressTint="@color/blue"
+        android:progressTint="@color/cyan"
         android:visibility="gone" />
 
     <FrameLayout
@@ -139,7 +144,11 @@
             android:contentDescription="@string/media_panel_title"
             android:text="@string/media_panel_title"
             android:visibility="gone"
-            app:icon="@drawable/ic_media" />
+            app:backgroundTint="@color/primary_container"
+            app:icon="@drawable/ic_media"
+            app:iconTint="@color/cyan"
+            app:strokeColor="@color/cyan_stroke"
+            app:strokeWidth="1dp" />
     </FrameLayout>
 
     <com.google.android.material.bottomnavigation.BottomNavigationView

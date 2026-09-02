@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Capture · 五种视觉世界</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=JetBrains+Mono:wght@500&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css" />
+  <style>
+    :root {
+      --bg: #101114;
+      --ink: #f2efe8;
+      --mute: #8d8a84;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font-family: "Noto Sans SC", "Segoe UI", sans-serif; }
+    header { padding: 28px 32px 8px; max-width: 1680px; margin: 0 auto; }
+    h1 { font-size: 22px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.03em; }
+    .lede { margin: 0; color: var(--mute); font-size: 13px; line-height: 1.55; max-width: 720px; }
+    .screens { display: flex; gap: 8px; flex-wrap: wrap; padding: 18px 32px 8px; max-width: 1680px; margin: 0 auto; }
+    .screens button {
+      background: #1c1d21; color: #c9c4bb; border: 0; height: 40px; padding: 0 14px;
+      font: inherit; font-size: 13px; cursor: pointer; border-radius: 8px;
+    }
+    .screens button[aria-current="true"] { background: #f2efe8; color: #141414; }
+    .gallery {
+      display: flex; gap: 22px; overflow-x: auto; padding: 12px 32px 48px;
+      max-width: 1680px; margin: 0 auto; scroll-snap-type: x mandatory;
+    }
+    .col { flex: 0 0 292px; scroll-snap-align: start; }
+    .col h2 { font-size: 16px; margin: 14px 0 4px; font-weight: 600; }
+    .col .tag { font-size: 12px; color: #b7b3ab; line-height: 1.45; margin: 0 0 8px; min-height: 34px; }
+    .col .fit { font-size: 11px; color: #7e7b75; line-height: 1.45; margin: 0; }
+    .device {
+      width: 292px; height: 612px; border-radius: 34px; padding: 10px;
+      display: flex; flex-direction: column;
+    }
+    .app { flex: 1; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+    .sb { display: flex; justify-content: space-between; padding: 9px 16px 2px; font-size: 11px; font-weight: 500; }
+    .body { flex: 1; overflow: hidden; padding: 6px 16px 78px; }
+    .tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; display: grid; grid-template-columns: repeat(4, 1fr); }
+    .tabs button { background: transparent; border: 0; color: inherit; font: inherit; font-size: 10px; cursor: default; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; opacity: .42; }
+    .tabs button[aria-current="true"] { opacity: 1; font-weight: 600; }
+    .tabs i { font-size: 18px; line-height: 1; }
+    .chrome i { font-size: 18px; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    input[type="text"] { flex: 1; height: 48px; border: 0; padding: 0 16px; font: inherit; font-size: 14px; min-width: 0; }
+    button.go, button.pri, button.ghost { height: 48px; border: 0; font: inherit; font-size: 14px; cursor: default; padding: 0 14px; }
+    .h { margin: 8px 0 6px; letter-spacing: -0.03em; }
+    .p { margin: 0 0 14px; line-height: 1.5; }
+    .t { font-size: 15px; font-weight: 500; line-height: 1.3; }
+    .s { font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar { height: 4px; margin-top: 10px; border-radius: 4px; overflow: hidden; }
+    .bar > i { display: block; height: 100%; width: 47%; }
+    .fab { position: absolute; right: 14px; bottom: 76px; height: 48px; padding: 0 16px; border: 0; font: inherit; font-size: 13px; }
+    .chrome { display: flex; }
+    .chrome button { flex: 1; height: 44px; border: 0; background: transparent; color: inherit; font: inherit; cursor: default; opacity: .7; }
+    .sw { display: flex; justify-content: space-between; align-items: center; min-height: 48px; gap: 12px; }
+    .knob { width: 48px; height: 28px; border-radius: 14px; position: relative; flex: 0 0 48px; }
+    .knob::after { content: ""; width: 22px; height: 22px; border-radius: 50%; position: absolute; top: 3px; right: 3px; background: #fff; }
+    .web { margin-top: 10px; }
+    .note { max-width: 1680px; margin: 0 auto; padding: 0 32px 40px; color: #6f6c66; font-size: 12px; }
+
+    /* 1 极简 */
+    .mini.device { background: #e7e7ea; }
+    .mini .app { background: #fff; color: #1a1a1a; }
+    .mini .sb { color: #8b8b8b; }
+    .mini .h { font-size: 26px; font-weight: 600; color: #111; }
+    .mini .p { font-size: 13px; color: #5c5c5c; }
+    .mini input { background: #f3f4f6; color: #111; border-radius: 12px; }
+    .mini .go, .mini .pri, .mini .fab { background: #2f6bff; color: #fff; border-radius: 12px; }
+    .mini .ghost { background: #f3f4f6; color: #1a1a1a; border-radius: 12px; }
+    .mini .bar { background: #eceef2; } .mini .bar > i { background: #2f6bff; }
+    .mini .web { height: 168px; background: #f7f8fa; border-radius: 12px; padding: 16px; color: #6a6a6a; font-size: 13px; }
+    .mini .tabs { background: #fff; border-top: 1px solid #eee; }
+    .mini .tabs button[aria-current="true"] { color: #2f6bff; }
+    .mini .knob { background: #2f6bff; }
+    .mini .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 16px; }
+    .mini .tile { background: #eef4ff; border-radius: 12px; min-height: 58px; padding: 10px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 12px; color: #1d3f8a; }
+    .mini .tile i { color: #2f6bff; margin-bottom: 6px; font-size: 18px; }
+    .mini .hist { display: flex; align-items: center; gap: 10px; min-height: 44px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .mini .dot { width: 8px; height: 8px; border-radius: 50%; background: #2f6bff; flex: 0 0 8px; }
+    .mini .line { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .mini .s { color: #7a7a7a; }
+
+    /* 2 深色科技 */
+    .tech.device { background: #050816; box-shadow: 0 0 0 1px #1a2a4a, 0 0 28px rgba(45, 230, 255, .12); }
+    .tech .app { background: #070b18; color: #d7f7ff; }
+    .tech .sb { color: #5f8aa0; font-family: "JetBrains Mono", monospace; }
+    .tech .h { font-size: 20px; font-weight: 600; color: #e9fbff; }
+    .tech .p { font-size: 12px; color: #7aa0b4; }
+    .tech input { background: #0d1528; color: #d7f7ff; border-radius: 8px; box-shadow: inset 0 0 0 1px #1e3a55; }
+    .tech .go, .tech .pri, .tech .fab {
+      background: #0b2a33; color: #3deff8; border-radius: 8px;
+      box-shadow: 0 0 0 1px #2de6ff, 0 0 14px rgba(45, 230, 255, .28);
+    }
+    .tech .ghost { background: #0d1528; color: #9ad2e4; border-radius: 8px; box-shadow: inset 0 0 0 1px #1e3a55; }
+    .tech .bar { background: #122033; height: 5px; } .tech .bar > i { background: #3deff8; box-shadow: 0 0 8px #3deff8; }
+    .tech .web { height: 150px; background: linear-gradient(#0a1224, #101c38); border-radius: 8px; padding: 14px; color: #7aa0b4; font-size: 12px; box-shadow: inset 0 0 0 1px #1a3350; }
+    .tech .tabs { background: #050916; box-shadow: 0 -1px 0 #15263d; }
+    .tech .tabs button[aria-current="true"] { color: #3deff8; text-shadow: 0 0 10px rgba(61, 239, 248, .6); }
+    .tech .knob { background: #1a5c66; box-shadow: 0 0 10px rgba(61, 239, 248, .4); }
+    .tech .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 14px; }
+    .tech .hud b { display: block; font-family: "JetBrains Mono", monospace; font-size: 16px; color: #3deff8; font-weight: 500; }
+    .tech .hud span { font-size: 10px; color: #6e93a8; }
+    .tech .hud div { background: #0d1528; padding: 10px 8px; border-radius: 8px; box-shadow: inset 0 0 0 1px #1a3350; }
+    .tech .chip { display: inline-block; font-family: "JetBrains Mono", monospace; font-size: 10px; color: #b59cff; box-shadow: inset 0 0 0 1px #6a58b8; padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
+    .tech .line { padding: 11px 0; border-bottom: 1px solid #15263d; }
+    .tech .s { color: #6e93a8; font-family: "JetBrains Mono", monospace; font-size: 10px; }
+    .tech .t { color: #e9fbff; }
+    .tech .ring {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: conic-gradient(#3deff8 0 47%, #163044 47%);
+      display: grid; place-items: center; margin: 8px 0 12px;
+    }
+    .tech .ring span { width: 54px; height: 54px; border-radius: 50%; background: #070b18; display: grid; place-items: center; font-family: "JetBrains Mono", monospace; font-size: 13px; color: #3deff8; }
+
+    /* 3 柔和拟物 */
+    .skeuo.device { background: #e4d5c4; }
+    .skeuo .app { background: #f3e8da; color: #4a3b32; }
+    .skeuo .sb { color: #a08a7a; }
+    .skeuo .h { font-family: "Noto Serif SC", serif; font-size: 24px; font-weight: 600; color: #3d2e26; }
+    .skeuo .p { font-size: 13px; color: #7a6558; }
+    .skeuo input {
+      background: #eadccf; color: #4a3b32; border-radius: 18px;
+      box-shadow: inset 3px 3px 8px rgba(150, 120, 95, .28), inset -2px -2px 6px rgba(255, 250, 244, .9);
+    }
+    .skeuo .go, .skeuo .pri, .skeuo .fab {
+      background: #d4896a; color: #fff8f3; border-radius: 18px;
+      box-shadow: 4px 6px 12px rgba(160, 100, 70, .28), -2px -2px 6px rgba(255, 245, 235, .7);
+    }
+    .skeuo .ghost {
+      background: #f3e8da; color: #6a4e40; border-radius: 18px;
+      box-shadow: 4px 6px 10px rgba(170, 140, 110, .22), -3px -3px 8px rgba(255, 252, 248, .9);
+    }
+    .skeuo .bar { background: #e4d3c4; height: 8px; border-radius: 8px; box-shadow: inset 2px 2px 4px rgba(150,120,95,.25); }
+    .skeuo .bar > i { background: #d4896a; border-radius: 8px; }
+    .skeuo .web {
+      height: 132px; border-radius: 20px; padding: 16px; background: #f7eee4; color: #7a6558; font-size: 13px;
+      box-shadow: 6px 8px 16px rgba(170, 140, 110, .22), -4px -4px 10px rgba(255, 252, 248, .85);
+    }
+    .skeuo .tabs { background: #efe3d6; }
+    .skeuo .tabs button[aria-current="true"] { color: #c4785a; }
+    .skeuo .knob { background: #d4896a; }
+    .skeuo .icons { display: flex; gap: 10px; margin: 4px 0 16px; }
+    .skeuo .ico {
+      flex: 1; aspect-ratio: 1; border-radius: 18px; display: grid; place-items: center;
+      box-shadow: 5px 6px 12px rgba(170, 140, 110, .22), -3px -3px 8px rgba(255, 252, 248, .9);
+    }
+    .skeuo .card {
+      background: #f7eee4; border-radius: 20px; padding: 14px; margin-bottom: 10px;
+      box-shadow: 6px 8px 14px rgba(170, 140, 110, .2), -3px -3px 8px rgba(255, 252, 248, .85);
+    }
+    .skeuo .s { color: #8a7366; }
+
+    /* 4 活力插画 */
+    .vivid.device { background: #ffe8d2; }
+    .vivid .app { background: #fffaf4; color: #2b241c; font-family: "Fredoka", "Noto Sans SC", sans-serif; }
+    .vivid .sb { color: #b08968; }
+    .vivid .h { font-size: 24px; font-weight: 600; color: #1f1a14; letter-spacing: -0.02em; }
+    .vivid .p { font-size: 13px; color: #6d5b4a; }
+    .vivid input { background: #fff; color: #2b241c; border-radius: 16px; box-shadow: 0 0 0 2px #ffe0c2; }
+    .vivid .go, .vivid .pri, .vivid .fab { background: #ff6b2c; color: #fff; border-radius: 16px; }
+    .vivid .ghost { background: #ffe8c8; color: #7a4a12; border-radius: 16px; }
+    .vivid .bar { background: #ffe8d2; height: 8px; border-radius: 8px; } .vivid .bar > i { background: #ff6b2c; }
+    .vivid .web { height: 128px; background: #e8f4ff; border-radius: 20px; padding: 14px; color: #3a5a80; font-size: 13px; }
+    .vivid .tabs { background: #fff; }
+    .vivid .tabs button[aria-current="true"] { color: #ff6b2c; }
+    .vivid .knob { background: #ff6b2c; }
+    .vivid .hero { height: 118px; margin: 4px 0 12px; border-radius: 22px; overflow: hidden; }
+    .vivid .pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .vivid .pills span {
+      height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 14px; font-size: 13px;
+    }
+    .vivid .item { display: flex; gap: 10px; align-items: center; padding: 10px 0; }
+    .vivid .swatch { width: 44px; height: 44px; border-radius: 14px; flex: 0 0 44px; }
+    .vivid .s { color: #8a7060; }
+
+    /* 5 玻璃拟态 */
+    .glass.device { background: #1a1038; }
+    .glass .app {
+      color: #eef2ff;
+      background:
+        radial-gradient(ellipse 90% 60% at 12% 8%, #5a48ff 0%, transparent 52%),
+        radial-gradient(ellipse 70% 50% at 92% 78%, #c246c8 0%, transparent 48%),
+        radial-gradient(ellipse 50% 40% at 50% 100%, #2a62ff 0%, transparent 50%),
+        #12082a;
+    }
+    .glass .sb { color: rgba(230, 236, 255, .65); }
+    .glass .h { font-size: 24px; font-weight: 500; color: #fff; }
+    .glass .p { font-size: 13px; color: rgba(230, 236, 255, .72); }
+    .glass input, .glass .pane, .glass .web, .glass .ghost, .glass .itemg {
+      background: rgba(255, 255, 255, .1);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid rgba(255, 255, 255, .22);
+      color: #eef2ff;
+    }
+    .glass input { border-radius: 16px; }
+    .glass .go, .glass .pri, .glass .fab {
+      background: rgba(255, 255, 255, .2);
+      backdrop-filter: blur(18px);
+      color: #fff; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .35);
+    }
+    .glass .ghost { border-radius: 16px; }
+    .glass .bar { background: rgba(255,255,255,.12); } .glass .bar > i { background: #c8d4ff; }
+    .glass .web { height: 140px; border-radius: 18px; padding: 14px; font-size: 13px; }
+    .glass .tabs {
+      background: rgba(12, 8, 32, .45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,.12);
+    }
+    .glass .tabs button[aria-current="true"] { color: #fff; }
+    .glass .knob { background: rgba(255,255,255,.35); }
+    .glass .pane { border-radius: 18px; padding: 14px; margin-bottom: 10px; }
+    .glass .s { color: rgba(230, 236, 255, .62); }
+    .glass .itemg { border-radius: 16px; padding: 12px; margin-bottom: 8px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tech .bar > i { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Capture · 五种视觉世界</h1>
+    <p class="lede">已选定深色科技并落到 Android。此页仍可对照其余四版。任务名、时长、进度为示意。</p>
+  </header>
+  <nav class="screens" id="screenNav"></nav>
+  <div class="gallery" id="gallery"></div>
+  <p class="note">未改 Android。选定一种后，再按该世界改原生界面。</p>
+  <script>
+    const screens = [
+      ["home", "起始"],
+      ["browse", "浏览"],
+      ["capture", "捕获"],
+      ["queue", "任务"],
+      ["library", "片库"],
+      ["settings", "设置"]
+    ];
+    const styles = [
+      {
+        id: "mini",
+        name: "极简",
+        tag: "白底留白，细线图标，只有一个蓝强调下载与前往。",
+        fit: "最贴工具属性。白天户外也清楚。风险是夜里对比偏弱。"
+      },
+      {
+        id: "tech",
+        name: "深色科技",
+        tag: "夜色底，青紫数据，进度与协议像监控台。",
+        fit: "贴合夜里单手用。风险是装饰一过就抢过片名。"
+      },
+      {
+        id: "skeuo",
+        name: "柔和拟物",
+        tag: "暖米色、软阴影、凹凸搜索槽，像可按的物件。",
+        fit: "手感友好。风险是偏生活记录，不像下载工具。"
+      },
+      {
+        id: "vivid",
+        name: "活力插画",
+        tag: "几何色块当插画，粗按钮，记录是彩色胶囊。",
+        fit: "起始页最有记忆点。风险是捕获决策面被颜色打散。"
+      },
+      {
+        id: "glass",
+        name: "玻璃拟态",
+        tag: "靛紫光晕上浮一层毛玻璃，网页是气氛，控件是玻璃。",
+        fit: "浏览时最像「压在片子上的壳」。风险是字对比与性能。"
+      }
+    ];
+    let screen = new URLSearchParams(location.search).get("s") || "home";
+
+    function ico(name, filled) {
+      const map = {
+        browse: "compass", queue: "download-simple", library: "film-strip", settings: "gear",
+        play: "play", capture: "record", save: "tray-arrow-down",
+        home: "house", back: "caret-left", forward: "caret-right",
+        reload: "arrow-clockwise", analyze: "magnifying-glass"
+      };
+      return `<i class="${filled ? "ph-fill" : "ph"} ph-${map[name]}"></i>`;
+    }
+
+    function tabs(style, on) {
+      const browseOn = on === "home" || on === "browse" || on === "capture";
+      const filled = style === "skeuo" || style === "vivid";
+      const items = [
+        ["browse", "浏览", browseOn],
+        ["queue", "任务", on === "queue"],
+        ["library", "片库", on === "library"],
+        ["settings", "设置", on === "settings"]
+      ];
+      return `<nav class="tabs">${items.map(([id, label, cur]) =>
+        `<button ${cur ? "aria-current='true'" : ""}>${ico(id, filled)}<span>${label}</span></button>`
+      ).join("")}</nav>`;
+    }
+
+    function sb(style) {
+      return `<div class="sb"><span>22:14</span><span>Capture</span></div>`;
+    }
+
+    function home(style) {
+      const row = `<div class="row"><input type="text" value="playrecord.biz" readonly /><button class="go">前往</button></div>`;
+      if (style === "mini") {
+        return `${sb(style)}<div class="body">
+          <div class="h">在页面里捕获媒体</div>
+          <p class="p">输入网址打开页面，播放后可在右下角查看捕获结果。</p>
+          ${row}
+          <div class="s" style="margin:18px 0 8px">怎么做</div>
+          <div class="grid">
+            <div class="tile">${ico("play")}<span>播放页面中的视频</span></div>
+            <div class="tile">${ico("capture")}<span>点右下角查看捕获</span></div>
+            <div class="tile">${ico("save")}<span>下载后到任务查看</span></div>
+            <div class="tile">${ico("library")}<span>完成后在片库打开</span></div>
+          </div>
+          <div class="s" style="margin:4px 0 4px">搜索记录</div>
+          <div class="hist"><span class="dot"></span>playrecord.biz</div>
+          <div class="hist"><span class="dot"></span>kuzu v0</div>
+        </div>` + tabs(style, "home");
+      }
+      if (style === "tech") {
+        return `${sb(style)}<div class="body">
+          <div class="hud">
+            <div><b>3</b><span>当前页捕获</span></div>
+            <div><b>1</b><span>下载中</span></div>
+            <div><b>本机</b><span>无账号</span></div>
+          </div>
+          ${row}
+          <p class="p" style="margin-top:12px">播放后捕获真实片子。不支持 DRM。</p>
+          <div class="s" style="margin:10px 0 6px">搜索记录</div>
+          <div class="line"><div class="t">playrecord.biz</div></div>
+          <div class="line"><div class="t">kuzu v0</div></div>
+        </div>` + tabs(style, "home");
+      }
+      if (style === "skeuo") {
+        return `${sb(style)}<div class="body">
+          <div class="h">在页面里捕获媒体</div>
+          <p class="p">打开网页，播放后再收下。</p>
+          ${row}
+          <div class="icons">
+            <div class="ico" style="background:#f0c9b4">${ico("play", true)}</div>
+            <div class="ico" style="background:#ead7c2">${ico("capture", true)}</div>
+            <div class="ico" style="background:#e4cbb8">${ico("save", true)}</div>
+            <div class="ico" style="background:#f2dcc8">${ico("library", true)}</div>
+          </div>
+          <div class="card"><div class="s">搜索记录</div><div class="t" style="margin-top:8px">playrecord.biz</div><div class="t" style="margin-top:6px">kuzu v0</div></div>
+        </div>` + tabs(style, "home");
+      }
+      if (style === "vivid") {
+        return `${sb(style)}<div class="body">
+          <svg class="hero" viewBox="0 0 260 118" aria-hidden="true">
+            <rect width="260" height="118" rx="22" fill="#fff1e4"/>
+            <rect x="16" y="18" width="132" height="82" rx="16" fill="#3ba3ff"/>
+            <polygon points="58,38 58,80 96,59" fill="#fff"/>
+            <circle cx="196" cy="42" r="28" fill="#ffd23f"/>
+            <rect x="168" y="74" width="76" height="26" rx="10" fill="#3dcc7a"/>
+            <rect x="156" y="22" width="18" height="18" rx="6" fill="#ff6b2c"/>
+          </svg>
+          <div class="h">打开就能收下</div>
+          <p class="p">播放页面里的视频，再下载到片库。</p>
+          ${row}
+          <div class="s" style="margin:14px 0 8px">搜索记录</div>
+          <div class="pills">
+            <span style="background:#ffe0c2">playrecord.biz</span>
+            <span style="background:#d8eeff">kuzu v0</span>
+          </div>
+        </div>` + tabs(style, "home");
+      }
+      return `${sb(style)}<div class="body">
+        <div class="h">在页面里捕获媒体</div>
+        <p class="p">地址栏浮在光上。记录只在点前往时写入。</p>
+        <div class="pane">${row}</div>
+        <div class="pane">
+          <div class="s">搜索记录</div>
+          <div class="t" style="margin-top:8px">playrecord.biz</div>
+          <div class="t" style="margin-top:6px">kuzu v0</div>
+        </div>
+      </div>` + tabs(style, "home");
+    }
+
+    function browse(style) {
+      const chrome = `<div class="chrome"><button>${ico("home", filled)}</button><button>${ico("back", filled)}</button><button>${ico("forward", filled)}</button><button>${ico("reload", filled)}</button><button style="font-size:12px;opacity:1;font-weight:500">解析</button></div>
+        <div class="row" style="margin-top:6px"><input type="text" value="playrecord.biz/embed/24a0" readonly /><button class="go">前往</button></div>`;
+      const web = `<div class="web">页面正在播放。<br><br>最长片子会出现在捕获列表顶部。</div>`;
+      return `${sb(style)}<div class="body">${chrome}${web}</div><button class="fab">捕获 3</button>` + tabs(style, "browse");
+    }
+
+    function capture(style) {
+      const items = [
+        ["网页里的视频名", "1:20:19  1080p HLS", "#3ba3ff"],
+        ["相关片段", "12:04  720p 直链", "#ff6b2c"],
+        ["短镜头", "0:45  480p 直链", "#3dcc7a"]
+      ];
+      let list = "";
+      if (style === "mini") {
+        list = items.map(([t, s]) => `<div class="line"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      } else if (style === "tech") {
+        list = items.map(([t, s]) => `<div class="line"><div class="t">${t}<span class="chip">${s.split(" ").pop()}</span></div><div class="s">${s}</div></div>`).join("");
+      } else if (style === "skeuo") {
+        list = items.map(([t, s]) => `<div class="card"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      } else if (style === "vivid") {
+        list = items.map(([t, s, c]) => `<div class="item"><div class="swatch" style="background:${c}"></div><div><div class="t">${t}</div><div class="s">${s}</div></div></div>`).join("");
+      } else {
+        list = items.map(([t, s]) => `<div class="itemg"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      }
+      return `${sb(style)}<div class="body"><div class="h">捕获 3</div>${list}
+        <button class="pri" style="width:100%;margin-top:8px">下载最佳清晰度</button></div>` + tabs(style, "capture");
+    }
+
+    function queue(style) {
+      const extra = style === "tech" ? `<div class="ring"><span>47%</span></div>` : "";
+      const block = `${extra}
+        <div class="${style === "skeuo" ? "card" : style === "glass" ? "itemg" : "line"}">
+          <div class="t">网页里的视频名</div>
+          <div class="s">下载中  18.4 / 38.9 MB  1.2 MB/s</div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="${style === "skeuo" ? "card" : style === "glass" ? "itemg" : "line"}" style="margin-top:8px">
+          <div class="t">相关片段</div>
+          <div class="s">已暂停  6.1 MB / 12.0 MB</div>
+        </div>`;
+      return `${sb(style)}<div class="body"><div class="h">下载任务</div>${block}</div>` + tabs(style, "queue");
+    }
+
+    function library(style) {
+      const files = [
+        ["网页里的视频名", "Movies/capture-01.mp4"],
+        ["短镜头", "Movies/capture-02.mp4"]
+      ];
+      let list = "";
+      if (style === "skeuo") list = files.map(([t, s]) => `<div class="card"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      else if (style === "glass") list = files.map(([t, s]) => `<div class="itemg"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      else if (style === "vivid") list = files.map(([t, s], i) => `<div class="item"><div class="swatch" style="background:${i ? "#ffd23f" : "#3ba3ff"}"></div><div><div class="t">${t}</div><div class="s">${s}</div></div></div>`).join("");
+      else list = files.map(([t, s]) => `<div class="line"><div class="t">${t}</div><div class="s">${s}</div></div>`).join("");
+      return `${sb(style)}<div class="body"><div class="h">片库</div>${list}
+        <button class="pri" style="margin-top:10px">${style === "mini" ? "打开" : "打开"}</button></div>` + tabs(style, "library");
+    }
+
+    function settings(style) {
+      return `${sb(style)}<div class="body">
+        <div class="h">设置</div>
+        <p class="p">本地运行：无账号、无分析、无广告。搜索记录、Cookie 与媒体地址仅保存在本机。</p>
+        <div class="sw"><span>页面加载后用 yt-dlp 补充检测</span><div class="knob"></div></div>
+        <button class="ghost" style="width:100%;margin-top:16px">清除搜索记录</button>
+      </div>` + tabs(style, "settings");
+    }
+
+    function body(style) {
+      if (screen === "home") return home(style);
+      if (screen === "browse") return browse(style);
+      if (screen === "capture") return capture(style);
+      if (screen === "queue") return queue(style);
+      if (screen === "library") return library(style);
+      return settings(style);
+    }
+
+    function render() {
+      document.getElementById("gallery").innerHTML = styles.map((st) => `
+        <article class="col">
+          <div class="device ${st.id}"><div class="app">${body(st.id)}</div></div>
+          <h2>${st.name}</h2>
+          <p class="tag">${st.tag}</p>
+          <p class="fit">${st.fit}</p>
+        </article>
+      `).join("");
+      document.querySelectorAll("#screenNav button").forEach((el) => {
+        el.setAttribute("aria-current", el.dataset.screen === screen ? "true" : "false");
+      });
+    }
+
+    document.getElementById("screenNav").innerHTML = screens.map(([id, label]) =>
+      `<button type="button" data-screen="${id}">${label}</button>`
+    ).join("");
+    document.querySelectorAll("#screenNav button").forEach((el) => {
+      el.onclick = () => {
+        screen = el.dataset.screen;
+        history.replaceState(null, "", "?s=" + screen);
+        render();
+      };
+    });
+    render();
+  </script>
+</body>
+</html>

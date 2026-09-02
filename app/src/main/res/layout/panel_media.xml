@@ -14,7 +14,7 @@
         android:layout_height="wrap_content"
         android:text="@string/media_panel_title"
         android:textColor="@color/on_surface"
-        android:textSize="24sp"
+        android:textSize="22sp"
         android:textStyle="bold" />
 
     <TextView

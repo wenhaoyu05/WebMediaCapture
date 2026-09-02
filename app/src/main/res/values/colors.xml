@@ -1,13 +1,20 @@
 <resources>
-    <color name="navy">#0B1220</color>
-    <color name="blue">#4F7CFF</color>
-    <color name="on_primary">#FFFFFF</color>
-    <color name="surface">#0B1220</color>
-    <color name="surface_raised">#121C2E</color>
-    <color name="surface_variant">#162033</color>
-    <color name="on_surface">#E8EEF9</color>
-    <color name="on_surface_variant">#A8B4C8</color>
-    <color name="outline">#3A4A63</color>
+    <color name="navy">#070B18</color>
+    <color name="cyan">#3DEFF8</color>
+    <color name="cyan_stroke">#2DE6FF</color>
+    <color name="cyan_ripple">#403DEFF8</color>
+    <color name="blue">#3DEFF8</color>
+    <color name="on_primary">#070B18</color>
+    <color name="primary_container">#0B2A33</color>
+    <color name="purple">#B59CFF</color>
+    <color name="purple_outline">#6A58B8</color>
+    <color name="surface">#070B18</color>
+    <color name="surface_raised">#0D1528</color>
+    <color name="surface_variant">#0D1528</color>
+    <color name="on_surface">#E9FBFF</color>
+    <color name="on_surface_variant">#7AA0B4</color>
+    <color name="outline">#1E3A55</color>
+    <color name="divider">#15263D</color>
     <color name="error">#FF8A80</color>
-    <color name="nav_bar">#0F1828</color>
+    <color name="nav_bar">#050916</color>
 </resources>

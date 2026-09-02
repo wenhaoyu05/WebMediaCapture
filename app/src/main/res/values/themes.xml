@@ -1,23 +1,77 @@
 <resources>
     <style name="Theme.WebMediaCapture" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">@color/blue</item>
+        <item name="colorPrimary">@color/cyan</item>
         <item name="colorOnPrimary">@color/on_primary</item>
-        <item name="colorSecondary">@color/blue</item>
+        <item name="colorPrimaryContainer">@color/primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/cyan</item>
+        <item name="colorSecondary">@color/purple</item>
+        <item name="colorOnSecondary">@color/on_primary</item>
+        <item name="colorSecondaryContainer">@color/surface_raised</item>
+        <item name="colorOnSecondaryContainer">@color/purple</item>
+        <item name="colorTertiary">@color/cyan</item>
+        <item name="colorOnTertiary">@color/on_primary</item>
         <item name="colorSurface">@color/surface</item>
         <item name="colorOnSurface">@color/on_surface</item>
         <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
         <item name="colorOutline">@color/outline</item>
         <item name="colorError">@color/error</item>
+        <item name="colorSurfaceContainer">@color/surface_raised</item>
+        <item name="colorSurfaceContainerHigh">@color/surface_raised</item>
+        <item name="colorSurfaceContainerLowest">@color/navy</item>
+        <item name="colorControlActivated">@color/cyan</item>
         <item name="android:statusBarColor">@color/navy</item>
         <item name="android:navigationBarColor">@color/nav_bar</item>
         <item name="android:windowBackground">@color/surface</item>
         <item name="android:fontFamily">sans-serif</item>
+        <item name="android:colorControlHighlight">@color/cyan_ripple</item>
         <item name="bottomNavigationStyle">@style/Widget.WebMediaCapture.BottomNav</item>
+        <item name="materialButtonStyle">@style/Widget.WebMediaCapture.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.WebMediaCapture.Button.Outlined</item>
+        <item name="extendedFloatingActionButtonStyle">@style/Widget.WebMediaCapture.Fab</item>
+        <item name="switchStyle">@style/Widget.WebMediaCapture.Switch</item>
     </style>
 
     <style name="Widget.WebMediaCapture.BottomNav" parent="Widget.Material3.BottomNavigationView">
         <item name="android:background">@color/nav_bar</item>
         <item name="itemIconTint">@color/nav_item_color</item>
         <item name="itemTextColor">@color/nav_item_color</item>
+        <item name="itemRippleColor">@color/cyan_ripple</item>
+    </style>
+
+    <style name="Widget.WebMediaCapture.Button" parent="Widget.Material3.Button">
+        <item name="backgroundTint">@color/primary_container</item>
+        <item name="android:textColor">@color/cyan</item>
+        <item name="iconTint">@color/cyan</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="strokeColor">@color/cyan_stroke</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="rippleColor">@color/cyan_ripple</item>
+    </style>
+
+    <style name="Widget.WebMediaCapture.Button.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="strokeColor">@color/outline</item>
+        <item name="android:textColor">@color/on_surface</item>
+        <item name="iconTint">@color/on_surface</item>
+        <item name="cornerRadius">8dp</item>
+        <item name="rippleColor">@color/cyan_ripple</item>
+    </style>
+
+    <style name="Widget.WebMediaCapture.Fab" parent="Widget.Material3.ExtendedFloatingActionButton.Primary">
+        <item name="backgroundTint">@color/primary_container</item>
+        <item name="android:textColor">@color/cyan</item>
+        <item name="iconTint">@color/cyan</item>
+        <item name="strokeColor">@color/cyan_stroke</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="shapeAppearance">@style/Shape.WebMediaCapture.Fab</item>
+        <item name="rippleColor">@color/cyan_ripple</item>
+    </style>
+
+    <style name="Shape.WebMediaCapture.Fab" parent="ShapeAppearance.Material3.Corner.Medium">
+        <item name="cornerSize">8dp</item>
+    </style>
+
+    <style name="Widget.WebMediaCapture.Switch" parent="Widget.Material3.CompoundButton.Switch">
+        <item name="thumbTint">@color/switch_thumb</item>
+        <item name="trackTint">@color/switch_track</item>
     </style>
 </resources>

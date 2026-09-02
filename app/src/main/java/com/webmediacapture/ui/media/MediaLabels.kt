@@ -5,6 +5,15 @@ import com.webmediacapture.model.MediaType
 import com.webmediacapture.model.MediaVariant
 
 object MediaLabels {
+    fun typeChip(type: MediaType): String = when (type) {
+        MediaType.HLS -> "HLS"
+        MediaType.DASH -> "DASH"
+        MediaType.DIRECT -> "直链"
+        MediaType.AUDIO -> "AUDIO"
+        MediaType.UNKNOWN -> "MEDIA"
+        MediaType.DRM_PROTECTED -> "DRM"
+    }
+
     fun quality(candidate: MediaCandidate): String {
         val height = candidate.height ?: candidate.variants.maxOfOrNull { it.height ?: 0 }?.takeIf { it > 0 }
         return height?.let { "${it}p" } ?: fallbackType(candidate.type)

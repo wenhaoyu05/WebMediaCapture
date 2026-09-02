@@ -5,9 +5,11 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.text.TextUtils
+import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.ServiceWorkerClient
@@ -80,6 +82,8 @@ class BrowserActivity : AppCompatActivity() {
     private lateinit var historyEmpty: View
     private lateinit var mediaButton: ExtendedFloatingActionButton
     private lateinit var bottomNav: BottomNavigationView
+    private lateinit var hudDownloading: TextView
+    private lateinit var hudLibrary: TextView
     private lateinit var browserUserAgent: String
     private var candidates: List<MediaCandidate> = emptyList()
     private var browseOnPage = false
@@ -178,6 +182,8 @@ class BrowserActivity : AppCompatActivity() {
         historyEmpty = findViewById(R.id.home_history_empty)
         mediaButton = findViewById(R.id.fab_media)
         bottomNav = findViewById(R.id.bottom_nav)
+        hudDownloading = findViewById(R.id.hud_downloading_value)
+        hudLibrary = findViewById(R.id.hud_library_value)
     }
 
     private fun bindClicks() {
@@ -250,7 +256,7 @@ class BrowserActivity : AppCompatActivity() {
                         if (panelMedia.isVisible) bindMedia()
                     }
                 }
-                launch { viewModel.downloadTasks.collect { bindQueue(it); bindLibrary(it) } }
+                launch { viewModel.downloadTasks.collect { bindQueue(it); bindLibrary(it); bindHud(it) } }
                 launch { viewModel.history.collect(::bindHistory) }
             }
         }
@@ -362,14 +368,28 @@ class BrowserActivity : AppCompatActivity() {
 
     private fun mediaRow(candidate: MediaCandidate): View {
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        titleRow.addView(TextView(this).apply {
+            text = candidate.title ?: candidate.mediaUrl.substringAfterLast('/').substringBefore('?').ifBlank { getString(R.string.media_fallback_title) }
+            textSize = 16f
+            setTextColor(getColor(R.color.on_surface))
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        titleRow.addView(chip(MediaLabels.typeChip(candidate.type)))
+        column.addView(titleRow)
         column.addView(TextView(this).apply {
             text = MediaLabels.summary(candidate)
-            textSize = 17f
-            setTextColor(getColor(R.color.on_surface))
-        })
-        column.addView(TextView(this).apply {
-            text = candidate.title ?: candidate.mediaUrl.substringAfterLast('/').substringBefore('?').ifBlank { getString(R.string.media_fallback_title) }
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
             setTextColor(getColor(R.color.on_surface_variant))
+            setPadding(0, dp(4), 0, 0)
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         })
         if (candidate.type == MediaType.DRM_PROTECTED) {
             column.addView(TextView(this).apply {
@@ -411,12 +431,13 @@ class BrowserActivity : AppCompatActivity() {
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
         column.addView(TextView(this).apply {
             text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
-            textSize = 17f
+            textSize = 16f
             setTextColor(getColor(R.color.on_surface))
         })
         column.addView(TextView(this).apply {
             text = queueDetails(task)
             textSize = 11f
+            typeface = Typeface.MONOSPACE
             setTextColor(getColor(R.color.on_surface_variant))
             maxLines = 1
             isSingleLine = true
@@ -432,7 +453,7 @@ class BrowserActivity : AppCompatActivity() {
                 max = 10_000
                 isIndeterminate = task.state == DownloadState.PREPARING && task.progressPercent <= 0
                 progress = (task.progressPercent * 100.0).toInt().coerceIn(0, 10_000)
-                progressTintList = ColorStateList.valueOf(getColor(R.color.blue))
+                progressTintList = ColorStateList.valueOf(getColor(R.color.cyan))
                 progressBackgroundTintList = ColorStateList.valueOf(getColor(R.color.outline))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -481,12 +502,16 @@ class BrowserActivity : AppCompatActivity() {
         val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
         column.addView(TextView(this).apply {
             text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
-            textSize = 17f
+            textSize = 16f
             setTextColor(getColor(R.color.on_surface))
         })
         column.addView(TextView(this).apply {
             text = task.outputPath ?: getString(R.string.library_missing)
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
             setTextColor(getColor(R.color.on_surface_variant))
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
         })
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(MaterialButton(this).apply {
@@ -592,6 +617,33 @@ class BrowserActivity : AppCompatActivity() {
         DownloadState.COMPLETED -> getString(R.string.download_state_completed)
         DownloadState.FAILED -> getString(R.string.download_state_failed)
         DownloadState.CANCELLED -> getString(R.string.download_state_cancelled)
+    }
+
+    private fun bindHud(items: List<DownloadEntity>) {
+        val active = items.count {
+            it.state in setOf(
+                DownloadState.PENDING,
+                DownloadState.PREPARING,
+                DownloadState.DOWNLOADING,
+                DownloadState.MERGING,
+            )
+        }
+        hudDownloading.text = active.toString()
+        hudLibrary.text = items.count { it.state == DownloadState.COMPLETED }.toString()
+    }
+
+    private fun chip(label: String): TextView = TextView(this).apply {
+        text = label
+        textSize = 10f
+        typeface = Typeface.MONOSPACE
+        setTextColor(getColor(R.color.purple))
+        background = getDrawable(R.drawable.bg_chip)
+        includeFontPadding = false
+        setPadding(dp(6), dp(3), dp(6), dp(3))
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply { marginStart = dp(8) }
     }
 
     private fun isHttpUrl(value: String) = value.startsWith("https://", true) || value.startsWith("http://", true)

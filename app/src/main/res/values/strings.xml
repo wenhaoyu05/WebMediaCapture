@@ -64,4 +64,9 @@
     <string name="settings_cleared">搜索记录已清除</string>
     <string name="media_panel_title">捕获结果</string>
     <string name="search_engine_url">https://duckduckgo.com/?q=%1$s</string>
+    <string name="hud_downloading">下载中</string>
+    <string name="hud_library">片库</string>
+    <string name="hud_local_value">本机</string>
+    <string name="hud_local_label">无账号</string>
+    <string name="hud_zero">0</string>
 </resources>
