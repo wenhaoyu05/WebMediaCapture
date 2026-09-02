@@ -1,94 +1,47 @@
-# WebMediaCapture
+# Capture
 
-Local-first Android app for capturing and downloading **non-DRM** media that the user can already access in a built-in WebView. Detection is on-device. There is no account, analytics, ads, or developer server.
+当前发布版本：**[1.1.5](https://github.com/wenhaoyu05/WebMediaCapture/releases/tag/v1.1.5)**（`versionCode` 7）
 
-## 1. Project layout
+本机优先的 Android 应用：在内置 WebView 里打开你已经能看的网页，检测并下载其中的 **非 DRM** 媒体。检测与下载都在设备上完成，没有账号、分析、广告或开发者服务器。
+
+最低系统：Android 7.0（API 24）。包名：`com.webmediacapture`。许可证：[GPL-3.0](LICENSE)。
+
+## 安装
+
+到 [Releases](https://github.com/wenhaoyu05/WebMediaCapture/releases/latest) 下载 `Capture-1.1.5.apk`，允许未知来源后安装。
+
+## 能做什么
+
+- 内置浏览：地址栏打开网址或关键词搜索；搜索记录只在点「前往」时写入。
+- 实时捕获：拦截 WebView 网络请求、Service Worker 与页面探测，识别 HLS / DASH / 直链。
+- 下载：WorkManager 前台任务；可选 yt-dlp 补充检测；音视频用 FFmpeg 合成 MP4。
+- 四个底栏：浏览、任务、片库、设置。片库只列出已完成的本机文件。
+- 界面：深色科技（夜色底、青色动作、紫色协议标记）。
+
+## 不会做什么
+
+不提取 DRM 许可证，不下载受保护内容。不做多标签、远端同步或内置播放器。Cookie 与 Authorization 不写入数据库；日志会脱敏。
+
+## 使用
+
+1. 输入网址或关键词，打开页面并播放视频。
+2. 点右下角查看捕获结果，按时长从长到短排列。
+3. 下载后在「任务」看进度，完成后在「片库」打开文件。
+
+直播 HLS 只保存当前播放列表窗口。带 `ContentProtection` 的 DASH 或 SAMPLE-AES / FairPlay 会标为 DRM，不会下载。
+
+## 从源码构建
 
 ```text
-app/src/main/java/com/webmediacapture
-├── browser/      WebView controller, request observer, cookie provider
-├── detector/     URL / MIME / probe / HLS / DASH classifiers and dedup
-├── extractor/    Direct, HLS, DASH, yt-dlp extractors
-├── download/     Queue, WorkManager worker, Direct/HLS/DASH/yt-dlp engines, FFmpeg mux
-├── network/      OkHttp client, header manager, cookie bridge, HTTP probe
-├── database/     Room downloads + local history
-├── repository/   In-memory candidate store keyed by pageSessionId
-├── ui/           browser, media sheet, downloads sheet, settings
-└── util/         SafeLog, AppSettings
+./gradlew assembleRelease
 ```
 
-## 2. Architecture
+产物：`app/build/outputs/apk/release/app-release.apk`。需要 JDK 17+ 与 Android SDK。
 
-```text
-WebView shouldInterceptRequest / ServiceWorker / DOM probe
-        → RequestObserver (SharedFlow, never blocks the WebView thread)
-        → MediaDetector (background)
-            → UrlPatternDetector / MimeTypeDetector / HeaderProbeDetector
-            → HlsDetector / DashDetector
-        → CandidateDeduplicator
-        → MediaRepository (StateFlow)
-        → BrowserViewModel → UI FAB + bottom sheet
-        → DownloadManager → WorkManager foreground worker
-            → DirectDownloader | HlsDownloader | DashDownloader | YtDlpEngine
-            → FfmpegMuxer (video+audio → MP4)
-```
+## 实现要点
 
-## 3. SurfSave research (clean-room)
+检测链：WebView 拦截 / Service Worker / DOM probe → `MediaDetector` → 去重 → 捕获列表 → 下载队列。
 
-SurfSave (`songsongshuo785-art/SurfSave`) is licensed **GPL-3.0**. This project is an independent implementation: architecture ideas only, no copied source.
+引擎：Direct（Range + 继承请求头）、HLS（分片，AES-128 可解）、DASH（MPD 分轨再 mux）、yt-dlp（复杂页回退）。
 
-Public SurfSave wiki / README conclusions:
-
-1. **Capture chain:** Browser WebView intercepts requests → detector → chip/sheet → download queue → library/player.
-2. **WebView:** browsing, tabs, cookies; `CustomWebViewClient` / request inspector do media detection.
-3. **Network layer:** OkHttp + cookie jar; authenticated downloads reuse browser cookies.
-4. **Recognition:** request intercept, not HTML-only `<video>` scraping.
-5. **Cookie/Header:** WebView cookies and Referer/UA are attached for in-app download; they are not forwarded to external players.
-6. **yt-dlp:** page-level parsing / complex sites / playlists.
-7. **FFmpeg:** merge/remux after stream engines.
-8. **HLS/DASH:** dedicated stream engines; DRM is not downloadable.
-9. **Dedup:** download queue duplicate detection (SurfSave-specific UI/queue rules).
-10. **Downloads:** multi-engine queue with concurrency and notifications.
-
-This app does **not** include SurfSave’s Xray proxy, ML Kit translation, PiP player, or cookie profile import/export.
-
-## 4. Differences from SurfSave
-
-- Clean-room Kotlin modules named after the capture pipeline, not SurfSave packages.
-- No player, PiP, proxy, ads, or remote config.
-- Native HLS/DASH segment download with FFmpeg mux, yt-dlp as fallback.
-- Authorization/Cookie never persisted to Room; logs are redacted.
-- Probe concurrency capped at 4; static assets are not probed.
-
-## 5. Capture data flow
-
-ObservedRequest records url, method, mime, headers (Cookie/UA/Referer/Origin/Accept/Accept-Language), pageUrl, pageSessionId, timestamp. Candidates are isolated by `pageSessionId`. Blob URLs are ignored; underlying media requests are kept.
-
-## 6. Engine chains
-
-- **Direct:** URL/MIME/probe → OkHttp Range download with inherited headers.
-- **HLS:** parse master/media → download init+segments (AES-128 decrypt when present) → FFmpeg/concat mux. SAMPLE-AES / FairPlay → `DRM_PROTECTED`.
-- **DASH:** parse MPD Period/AdaptationSet/Representation/SegmentList|Template → download video+audio → FFmpeg mux. `ContentProtection` → `DRM_PROTECTED`.
-- **yt-dlp:** optional post-load fallback and UNKNOWN/complex pages; output mapped to `MediaCandidate`.
-
-## 7. Key types
-
-`MediaCandidate`, `RequestContext`, `MediaDetector`, `CandidateDeduplicator`, `CookieBridge`, `DownloadWorker`, `HlsDownloader`, `DashDownloader`, `YtDlpExtractor`, `FfmpegMuxer`, `SafeLog`.
-
-## 8. Implemented
-
-Built-in browser; realtime WebView capture; multi-level detection; HLS/DASH/Direct/yt-dlp; header inheritance; download queue + foreground notifications; local history; privacy defaults; unit tests with MockWebServer.
-
-## 9. Limits
-
-No DRM circumvention. Live HLS sliding windows are captured from the current playlist only. Very exotic DASH (`$Time$` with incomplete timelines) falls back to yt-dlp. Multi-tab browsing is not implemented. SPA hash navigations may keep the same page session.
-
-## 10. Privacy check
-
-No server, account, analytics, telemetry, or ads. Backup disabled. Cookie/Authorization not stored in Room. SafeLog redacts Cookie, Authorization, token, signature, auth, key, expires. Cleartext traffic disabled in release.
-
-## 11–15. Build artifacts
-
-See the latest `./gradlew clean test lint assembleRelease` output. Release APK:
-
-`app/build/outputs/apk/release/app-release.apk`
+这是独立的 clean-room 实现，参考过公开的 SurfSave 架构说明，不含其源码，也不含代理、翻译或画中画播放器。
