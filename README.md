@@ -1,47 +1,80 @@
+<div align="center">
+
 # Capture
 
-当前发布版本：**[1.1.5](https://github.com/wenhaoyu05/WebMediaCapture/releases/tag/v1.1.5)**（`versionCode` 7）
+本机优先的 Android 网页媒体捕获工具
 
-本机优先的 Android 应用：在内置 WebView 里打开你已经能看的网页，检测并下载其中的 **非 DRM** 媒体。检测与下载都在设备上完成，没有账号、分析、广告或开发者服务器。
+在内置浏览器里打开你已经能看的页面，检测并下载其中的非 DRM 媒体。全部在本机完成，没有账号、没有分析、没有广告。
 
-最低系统：Android 7.0（API 24）。包名：`com.webmediacapture`。许可证：[GPL-3.0](LICENSE)。
+[![Release](https://img.shields.io/github/v/release/wenhaoyu05/WebMediaCapture?logo=github)](https://github.com/wenhaoyu05/WebMediaCapture/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/wenhaoyu05/WebMediaCapture/total?logo=github)](https://github.com/wenhaoyu05/WebMediaCapture/releases)
+[![API](https://img.shields.io/badge/API-24%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/tools/releases/platforms)
+[![License](https://img.shields.io/github/license/wenhaoyu05/WebMediaCapture)](LICENSE)
 
-## 安装
+</div>
 
-到 [Releases](https://github.com/wenhaoyu05/WebMediaCapture/releases/latest) 下载 `Capture-1.1.5.apk`，允许未知来源后安装。
+## 截图
 
-## 能做什么
+<p>
+  <img src="docs/images/home.png" width="24%" alt="起始页" />
+  <img src="docs/images/browse.png" width="24%" alt="浏览" />
+  <img src="docs/images/queue.png" width="24%" alt="任务" />
+  <img src="docs/images/settings.png" width="24%" alt="设置" />
+</p>
 
-- 内置浏览：地址栏打开网址或关键词搜索；搜索记录只在点「前往」时写入。
-- 实时捕获：拦截 WebView 网络请求、Service Worker 与页面探测，识别 HLS / DASH / 直链。
-- 下载：WorkManager 前台任务；可选 yt-dlp 补充检测；音视频用 FFmpeg 合成 MP4。
-- 四个底栏：浏览、任务、片库、设置。片库只列出已完成的本机文件。
-- 界面：深色科技（夜色底、青色动作、紫色协议标记）。
+## 功能
 
-## 不会做什么
+- 内置 WebView 浏览，地址栏支持网址和关键词
+- 从页面网络请求、Service Worker 和 DOM 探测捕获 HLS / DASH / 直链
+- 可选 yt-dlp 补充检测，音视频用 FFmpeg 合成 MP4
+- 前台下载任务：进度、暂停、继续、取消
+- 片库只列出已完成的本机文件
+- 搜索记录仅在点「前往」时写入，不是浏览轨迹
+- 深色科技界面，Material 3
 
-不提取 DRM 许可证，不下载受保护内容。不做多标签、远端同步或内置播放器。Cookie 与 Authorization 不写入数据库；日志会脱敏。
+## 下载
+
+到 [Releases](https://github.com/wenhaoyu05/WebMediaCapture/releases/latest) 下载最新 APK 并安装。
+
+| 项目 | 说明 |
+| --- | --- |
+| 当前版本 | [1.1.5](https://github.com/wenhaoyu05/WebMediaCapture/releases/tag/v1.1.5) |
+| 系统 | Android 7.0 及以上 |
+| 包名 | `com.webmediacapture` |
+
+Google Play 上没有此应用。请从 GitHub 安装，并允许未知来源。
 
 ## 使用
 
 1. 输入网址或关键词，打开页面并播放视频。
-2. 点右下角查看捕获结果，按时长从长到短排列。
-3. 下载后在「任务」看进度，完成后在「片库」打开文件。
+2. 点右下角查看捕获结果，再下载。
+3. 在「任务」看进度，完成后到「片库」打开文件。
 
-直播 HLS 只保存当前播放列表窗口。带 `ContentProtection` 的 DASH 或 SAMPLE-AES / FairPlay 会标为 DRM，不会下载。
+不支持 DRM。带许可证保护的 HLS / DASH 会被识别并拒绝下载。直播 HLS 只保存当前播放列表窗口。
 
-## 从源码构建
+## 构建
 
-```text
+需要 JDK 17 与 Android SDK。
+
+```bash
 ./gradlew assembleRelease
 ```
 
-产物：`app/build/outputs/apk/release/app-release.apk`。需要 JDK 17+ 与 Android SDK。
+产物位于 `app/build/outputs/apk/release/app-release.apk`。
 
-## 实现要点
+## 隐私
 
-检测链：WebView 拦截 / Service Worker / DOM probe → `MediaDetector` → 去重 → 捕获列表 → 下载队列。
+- 无账号、无分析、无遥测、无广告
+- 媒体地址、搜索记录和 Cookie 只留在本机
+- `Authorization` 只留在内存；Cookie / Authorization 不写入数据库
+- 日志会脱敏；Release 禁止明文流量
 
-引擎：Direct（Range + 继承请求头）、HLS（分片，AES-128 可解）、DASH（MPD 分轨再 mux）、yt-dlp（复杂页回退）。
+## 致谢
 
-这是独立的 clean-room 实现，参考过公开的 SurfSave 架构说明，不含其源码，也不含代理、翻译或画中画播放器。
+检测与下载管线是独立实现。公开资料里参考过 [SurfSave](https://github.com/songsongshuo785-art/SurfSave) 的架构说明，不含其源码。不含 SurfSave 的代理、翻译或画中画播放器。
+
+下载能力还用到了 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 与 FFmpeg。
+
+## 许可证
+
+[GPL-3.0](LICENSE)
