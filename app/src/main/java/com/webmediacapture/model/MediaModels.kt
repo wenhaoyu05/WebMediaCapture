@@ -52,6 +52,7 @@ data class MediaCandidate(
     val confidence: Int = 50,
     val role: MediaRole = MediaRole.UNKNOWN,
     val durationSec: Double? = null,
+    val thumbnailUrl: String? = null,
 )
 
 data class ObservedRequest(
@@ -68,4 +69,5 @@ data class ObservedRequest(
     val height: Int? = null,
     val durationSec: Double? = null,
     val title: String? = null,
+    val thumbnailUrl: String? = null,
 )

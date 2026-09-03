@@ -1,6 +1,7 @@
 package com.webmediacapture.extractor
 
 import android.content.Context
+import com.webmediacapture.extractor.DouyinLinks
 import com.webmediacapture.model.DetectionSource
 import com.webmediacapture.model.MediaCandidate
 import com.webmediacapture.model.MediaType
@@ -15,8 +16,9 @@ import java.io.File
 
 class YtDlpExtractor(private val context: Context) {
     suspend fun extract(pageSessionId: String, pageUrl: String, requestContext: RequestContext): MediaCandidate = withContext(Dispatchers.IO) {
-        val cookie = cookieFile(pageSessionId, pageUrl, requestContext.value("Cookie"))
-        val request = YoutubeDLRequest(pageUrl).apply {
+        val extractUrl = DouyinLinks.pageUrlForExtract(pageUrl)
+        val cookie = cookieFile(pageSessionId, extractUrl, requestContext.value("Cookie"))
+        val request = YoutubeDLRequest(extractUrl).apply {
             addOption("--dump-single-json")
             addOption("--skip-download")
             addOption("--no-playlist")
@@ -55,6 +57,7 @@ class YtDlpExtractor(private val context: Context) {
             height = json.optInt("height").takeIf { it > 0 },
             estimatedSize = json.optLong("filesize").takeIf { it > 0 },
             durationSec = json.optDouble("duration").takeIf { it.isFinite() && it > 0 },
+            thumbnailUrl = json.optString("thumbnail").takeIf { it.startsWith("http") },
             requestContext = requestContext,
             source = DetectionSource.YT_DLP,
             variants = variants,

@@ -27,6 +27,7 @@ object UrlPatternDetector {
             extension == "mpd" || queryHints(url, "mpd", "dash") -> MediaType.DASH
             extension in segmentExtensions -> null
             queryHints(url, "mp4", "webm", "video") -> MediaType.DIRECT
+            isDouyinCdn(uri) -> MediaType.DIRECT
             else -> null
         }
     }
@@ -59,9 +60,17 @@ object UrlPatternDetector {
             return true
         }
         val uri = runCatching { URI(url) }.getOrNull() ?: return false
+        if (isDouyinCdn(uri)) return true
         val path = uri.path.orEmpty().lowercase()
         val query = uri.rawQuery.orEmpty().lowercase()
         return mediaPathHints.any { it in path || it in query }
+    }
+
+    private fun isDouyinCdn(uri: URI?): Boolean {
+        val host = uri?.host?.lowercase() ?: return false
+        val path = uri.path.orEmpty().lowercase()
+        return host.contains("douyinvod") || host.contains("douyincdn") ||
+            path.contains("/aweme/v1/play")
     }
 
     internal fun queryHints(url: String, vararg hints: String): Boolean {

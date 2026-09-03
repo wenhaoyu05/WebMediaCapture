@@ -9,4 +9,6 @@ class DownloadManager(private val repository: DownloadRepository) {
     suspend fun resume(id: String) = repository.resume(id)
     suspend fun cancel(id: String) = repository.cancel(id)
     suspend fun delete(id: String) = repository.delete(id)
+    suspend fun convertToMp4(id: String) = repository.convertToMp4(id)
+    suspend fun rename(id: String, title: String) = repository.rename(id, title)
 }

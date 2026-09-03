@@ -1,6 +1,7 @@
 package com.webmediacapture.download
 
 import android.content.Context
+import com.webmediacapture.extractor.DouyinLinks
 import com.webmediacapture.model.RequestContext
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -22,8 +23,9 @@ class YtDlpEngine(private val context: Context) {
     ): File = withContext(Dispatchers.IO) {
         destinationDir.mkdirs()
         val before = destinationDir.listFiles()?.toSet().orEmpty()
-        val cookie = cookieFile(id, url, requestContext.value("Cookie"))
-        val request = YoutubeDLRequest(url).apply {
+        val extractUrl = DouyinLinks.pageUrlForExtract(url)
+        val cookie = cookieFile(id, extractUrl, requestContext.value("Cookie"))
+        val request = YoutubeDLRequest(extractUrl).apply {
             addOption("--no-playlist")
             addOption("--continue")
             addOption("--no-mtime")

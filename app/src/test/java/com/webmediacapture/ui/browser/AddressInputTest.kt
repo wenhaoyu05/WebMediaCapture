@@ -12,6 +12,10 @@ class AddressInputTest {
         assertNull(AddressInput.destination("  ", search))
         assertEquals("http://127.0.0.1:9/", AddressInput.destination("http://127.0.0.1:9/", search))
         assertEquals("https://example.com", AddressInput.destination("example.com", search))
+        assertEquals(
+            "https://v.douyin.com/iAbC123/",
+            AddressInput.destination("6.52 复制打开抖音，看看 https://v.douyin.com/iAbC123/ 量化", search),
+        )
         assertEquals("https://duckduckgo.com/?q=hello+world", AddressInput.destination("hello world", search))
     }
 }

@@ -46,5 +46,6 @@ class DashDetector(private val probe: NetworkProbe) {
             role = request.role,
             width = request.width,
             height = request.height,
+            thumbnailUrl = request.thumbnailUrl,
         )
 }

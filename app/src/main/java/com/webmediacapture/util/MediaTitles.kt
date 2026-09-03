@@ -48,15 +48,41 @@ object MediaTitles {
             .take(80)
             .ifBlank { "video" }
 
-    fun uniqueMp4(dir: File, stem: String, ignore: File? = null): File {
+    fun needsMp4Convert(path: String?): Boolean {
+        val name = path?.substringAfterLast('/') ?: return false
+        val ext = name.substringAfterLast('.', "").lowercase()
+        if (ext.isEmpty() || ext == name.lowercase()) return true
+        if (ext == "mp4") return false
+        return ext !in setOf("mp3", "m4a", "aac", "ogg", "wav", "flac")
+    }
+
+    fun convertMp4Dest(source: File): File {
+        val dir = source.parentFile ?: return File("${source.path}.mp4")
+        val dest = uniqueMp4(dir, source.nameWithoutExtension, source)
+        val same = runCatching { dest.canonicalFile == source.canonicalFile }.getOrDefault(dest.absolutePath == source.absolutePath)
+        return if (same) uniqueMp4(dir, "${source.nameWithoutExtension}-mp4") else dest
+    }
+
+    fun uniqueMp4(dir: File, stem: String, ignore: File? = null): File =
+        uniqueFile(dir, stem, "mp4", ignore)
+
+    fun uniqueFile(dir: File, stem: String, ext: String, ignore: File? = null): File {
+        val suffix = ext.trimStart('.').lowercase().let { if (it.isEmpty()) "" else ".$it" }
         var index = 2
-        var file = File(dir, "$stem.mp4")
+        var file = File(dir, "$stem$suffix")
         val skip = runCatching { ignore?.canonicalFile }.getOrNull()
         while (file.exists() && runCatching { file.canonicalFile }.getOrNull() != skip) {
-            file = File(dir, "$stem-$index.mp4")
+            file = File(dir, "$stem-$index$suffix")
             index += 1
         }
         return file
+    }
+
+    fun renameKeepingExt(source: File, title: String): File {
+        val dir = source.parentFile ?: return source
+        val stem = sanitize(title).ifBlank { source.nameWithoutExtension }
+        val dest = uniqueFile(dir, stem, source.extension, source)
+        return moveMp4(source, dest)
     }
 
     fun moveMp4(source: File, dest: File): File {

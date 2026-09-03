@@ -16,19 +16,19 @@
 ## 截图
 
 <p>
-  <img src="docs/images/home.png" width="24%" alt="起始页" />
-  <img src="docs/images/browse.png" width="24%" alt="浏览" />
-  <img src="docs/images/queue.png" width="24%" alt="任务" />
-  <img src="docs/images/settings.png" width="24%" alt="设置" />
+  <img src="docs/images/home.png" width="32%" alt="起始页" />
+  <img src="docs/images/browse.png" width="32%" alt="浏览" />
+  <img src="docs/images/queue.png" width="32%" alt="任务" />
 </p>
 
 ## 功能
 
-- 内置 WebView 浏览，地址栏支持网址和关键词
+- 内置 WebView 浏览，地址栏支持网址、关键词和抖音分享口令 / 短链
 - 从页面网络请求、Service Worker 和 DOM 探测捕获 HLS / DASH / 直链
+- 粘贴抖音链接后在页面里解析并自动加入下载任务
 - 可选 yt-dlp 补充检测，音视频用 FFmpeg 合成 MP4
-- 前台下载任务：进度、暂停、继续、取消
-- 片库只列出已完成的本机文件
+- 前台下载任务：进度、暂停、继续、取消；失败时显示原因
+- 片库内置播放，可分享、导出到相册、重命名、转 MP4；任务和片库显示封面与时长
 - 搜索记录仅在点「前往」时写入，不是浏览轨迹
 - 深色科技界面，Material 3
 
@@ -38,7 +38,7 @@
 
 | 项目 | 说明 |
 | --- | --- |
-| 当前版本 | [1.1.5](https://github.com/wenhaoyu05/WebMediaCapture/releases/tag/v1.1.5) |
+| 当前版本 | [1.2.2](https://github.com/wenhaoyu05/WebMediaCapture/releases/tag/v1.2.2) |
 | 系统 | Android 7.0 及以上 |
 | 包名 | `com.webmediacapture` |
 
@@ -46,9 +46,9 @@ Google Play 上没有此应用。请从 GitHub 安装，并允许未知来源。
 
 ## 使用
 
-1. 输入网址或关键词，打开页面并播放视频。
-2. 点右下角查看捕获结果，再下载。
-3. 在「任务」看进度，完成后到「片库」打开文件。
+1. 输入网址、关键词，或粘贴抖音分享内容，点前往。
+2. 普通网页请先播放视频，再点右下角查看捕获结果并下载；抖音链接会自动解析并加入任务。
+3. 在「任务」看进度，完成后到「片库」播放、分享或导出。
 
 不支持 DRM。带许可证保护的 HLS / DASH 会被识别并拒绝下载。直播 HLS 只保存当前播放列表窗口。
 

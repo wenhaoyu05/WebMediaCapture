@@ -90,6 +90,14 @@ class MediaRepositoryTest {
         assertEquals("网页里的视频名", repo.candidates.value.single().title)
     }
 
+    @Test
+    fun applyPosterFillsMissingThumbnails() {
+        repo.startSession("s1")
+        repo.add(item("https://cdn.test/main.mp4", MediaRole.MAIN, 720))
+        repo.applyPoster("https://cdn.test/cover.jpg")
+        assertEquals("https://cdn.test/cover.jpg", repo.candidates.value.single().thumbnailUrl)
+    }
+
     private fun item(url: String, role: MediaRole, height: Int) = MediaCandidate(
         pageSessionId = "s1",
         pageUrl = "https://page.test",

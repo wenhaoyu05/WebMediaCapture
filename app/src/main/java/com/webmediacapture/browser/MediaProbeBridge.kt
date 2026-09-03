@@ -15,6 +15,7 @@ class MediaProbeBridge(
     private val observer: RequestObserver,
     private val session: PageSession,
     private val userAgent: () -> String,
+    private val onPoster: (String) -> Unit = {},
 ) {
     @JavascriptInterface
     fun report(
@@ -25,11 +26,14 @@ class MediaProbeBridge(
         rawHeight: String?,
         rawDuration: String?,
         rawTitle: String?,
+        rawPoster: String?,
     ) {
         val url = rawUrl?.trim()?.takeIf(::isHttpUrl) ?: return
         val page = session.current()
         if (!isHttpUrl(page.url)) return
         val durationSec = rawDuration?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
+        val poster = rawPoster?.trim()?.takeIf(::isHttpUrl)
+        poster?.let(onPoster)
         val headers = buildMap {
             put("Referer", page.url)
             userAgent().takeIf(String::isNotBlank)?.let { put("User-Agent", it) }
@@ -48,6 +52,7 @@ class MediaProbeBridge(
                 height = rawHeight?.toIntOrNull(),
                 durationSec = durationSec,
                 title = com.webmediacapture.util.MediaTitles.prefer(page.title, rawTitle),
+                thumbnailUrl = poster,
             ),
         )
         // #region agent log
@@ -64,6 +69,11 @@ class MediaProbeBridge(
             ),
         )
         // #endregion
+    }
+
+    @JavascriptInterface
+    fun poster(rawUrl: String?) {
+        rawUrl?.trim()?.takeIf(::isHttpUrl)?.let(onPoster)
     }
 
     companion object {

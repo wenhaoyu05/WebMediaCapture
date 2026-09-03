@@ -48,14 +48,23 @@ class FfmpegMuxer(private val context: Context) : SegmentMuxer {
         }
     }
 
-    suspend fun remuxToMp4(input: File, output: File): File = withContext(Dispatchers.IO) {
+    suspend fun convertToMp4(input: File, output: File): File = remuxToMp4(input, output, transcode = true)
+
+    suspend fun remuxToMp4(input: File, output: File, transcode: Boolean = false): File = withContext(Dispatchers.IO) {
         if (!input.exists() || input.length() == 0L) throw java.io.IOException("Empty input")
-        if (input.extension.equals("mp4", true)) {
+        if (input.extension.equals("mp4", true) && !transcode) {
             return@withContext com.webmediacapture.util.MediaTitles.moveMp4(input, output)
         }
         output.parentFile?.mkdirs()
         val binary = ffmpegBinary()
-        val attempts = listOf(remuxArgs(input, output), tsRemuxArgs(input, output))
+        val attempts = buildList {
+            add(remuxArgs(input, output))
+            add(tsRemuxArgs(input, output))
+            if (transcode) {
+                add(transcodeArgs(input, output))
+                add(mpeg4Args(input, output))
+            }
+        }
         var lastLog = ""
         for (args in attempts) {
             output.delete()
@@ -108,5 +117,11 @@ class FfmpegMuxer(private val context: Context) : SegmentMuxer {
 
         fun tsRemuxArgs(input: File, output: File): List<String> =
             listOf("-y", "-i", input.absolutePath, "-c", "copy", "-bsf:a", "aac_adtstoasc", "-movflags", "+faststart", output.absolutePath)
+
+        fun transcodeArgs(input: File, output: File): List<String> =
+            listOf("-y", "-i", input.absolutePath, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-movflags", "+faststart", output.absolutePath)
+
+        fun mpeg4Args(input: File, output: File): List<String> =
+            listOf("-y", "-i", input.absolutePath, "-c:v", "mpeg4", "-q:v", "5", "-c:a", "aac", "-movflags", "+faststart", output.absolutePath)
     }
 }

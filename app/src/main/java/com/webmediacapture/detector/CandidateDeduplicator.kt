@@ -26,6 +26,7 @@ class CandidateDeduplicator {
             codecs = preferred.codecs ?: current.codecs ?: incoming.codecs,
             durationSec = listOfNotNull(preferred.durationSec, current.durationSec, incoming.durationSec).maxOrNull(),
             title = com.webmediacapture.util.MediaTitles.prefer(current.title, incoming.title),
+            thumbnailUrl = preferred.thumbnailUrl ?: current.thumbnailUrl ?: incoming.thumbnailUrl,
             role = when {
                 current.role == MediaRole.MAIN || incoming.role == MediaRole.MAIN -> MediaRole.MAIN
                 incoming.role != MediaRole.UNKNOWN -> incoming.role

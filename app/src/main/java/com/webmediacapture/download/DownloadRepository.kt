@@ -13,6 +13,9 @@ import com.webmediacapture.database.DownloadEntity
 import com.webmediacapture.database.DownloadState
 import com.webmediacapture.model.MediaCandidate
 import com.webmediacapture.model.RequestContext
+import com.webmediacapture.library.LibraryMedia
+import com.webmediacapture.util.MediaTitles
+import java.io.File
 
 class DownloadRepository(
     private val context: Context,
@@ -53,15 +56,44 @@ class DownloadRepository(
         WorkManager.getInstance(context).cancelUniqueWork(id)
     }
 
+    suspend fun convertToMp4(id: String) {
+        val entity = dao.get(id) ?: return
+        if (entity.state != DownloadState.COMPLETED) return
+        val source = entity.outputPath?.let(::File) ?: return
+        if (!source.exists() || !MediaTitles.needsMp4Convert(source.absolutePath)) return
+        dao.setState(id, DownloadState.COMPLETED, null)
+        val work = OneTimeWorkRequestBuilder<ConvertWorker>()
+            .setInputData(Data.Builder().putString(ConvertWorker.ID, id).build())
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.NOT_REQUIRED).build())
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            .addTag(id)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(ConvertWorker.workName(id), ExistingWorkPolicy.KEEP, work)
+    }
+
     suspend fun delete(id: String) {
         val entity = dao.get(id)
         WorkManager.getInstance(context).cancelUniqueWork(id)
+        WorkManager.getInstance(context).cancelUniqueWork(ConvertWorker.workName(id))
         DownloadContextVault.remove(id)
-        val downloads = java.io.File(context.getExternalFilesDir(null), "downloads")
-        entity?.outputPath?.let { java.io.File(it).delete() }
+        val downloads = File(context.getExternalFilesDir(null), "downloads")
+        entity?.outputPath?.let { File(it).delete() }
         downloads.resolve("hls-$id").deleteRecursively()
         downloads.resolve("dash-$id").deleteRecursively()
+        LibraryMedia.deleteThumb(context, id)
         dao.delete(id)
+    }
+
+    suspend fun rename(id: String, title: String) {
+        val entity = dao.get(id) ?: return
+        val cleaned = MediaTitles.sanitize(title).ifBlank { return }
+        val source = entity.outputPath?.let(::File)
+        val path = if (source != null && source.exists()) {
+            MediaTitles.renameKeepingExt(source, cleaned).absolutePath
+        } else {
+            entity.outputPath
+        }
+        dao.updateTitleAndPath(id, cleaned, path)
     }
 
     private fun schedule(entity: DownloadEntity, requestContext: RequestContext) {

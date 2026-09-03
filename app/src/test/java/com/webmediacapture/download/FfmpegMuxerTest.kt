@@ -33,4 +33,18 @@ class FfmpegMuxerTest {
         assertFalse(args.contains("aac_adtstoasc"))
         assertEquals(output.absolutePath, args.last())
     }
+
+    @Test
+    fun transcodeArgsEncodeIntoMp4() {
+        val input = File("clip.webm")
+        val output = File("clip.mp4")
+        val args = FfmpegMuxer.transcodeArgs(input, output)
+        assertTrue(args.contains("libx264"))
+        assertTrue(args.contains("aac"))
+        assertFalse(args.contains("copy"))
+        assertEquals(output.absolutePath, args.last())
+        val fallback = FfmpegMuxer.mpeg4Args(input, output)
+        assertTrue(fallback.contains("mpeg4"))
+        assertEquals(output.absolutePath, fallback.last())
+    }
 }

@@ -38,6 +38,14 @@ interface DownloadDao {
         now: Long = System.currentTimeMillis(),
     )
 
+    @Query("UPDATE downloads SET title = :title, outputPath = :path, updatedAt = :now WHERE id = :id")
+    suspend fun updateTitleAndPath(
+        id: String,
+        title: String?,
+        path: String?,
+        now: Long = System.currentTimeMillis(),
+    )
+
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun delete(id: String)
 }

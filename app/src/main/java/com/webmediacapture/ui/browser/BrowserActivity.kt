@@ -2,9 +2,11 @@ package com.webmediacapture.ui.browser
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
@@ -12,13 +14,16 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.webkit.CookieManager
 import android.webkit.ServiceWorkerClient
 import android.webkit.ServiceWorkerController
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -32,6 +37,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -45,16 +51,30 @@ import com.webmediacapture.browser.WebViewController
 import com.webmediacapture.database.DownloadEntity
 import com.webmediacapture.database.DownloadState
 import com.webmediacapture.database.HistoryEntity
+import com.webmediacapture.extractor.DouyinExtractor
+import com.webmediacapture.extractor.DouyinLinks
+import com.webmediacapture.library.LibraryExport
+import com.webmediacapture.library.LibraryMedia
 import com.webmediacapture.model.MediaCandidate
 import com.webmediacapture.model.MediaType
 import com.webmediacapture.model.MediaVariant
 import com.webmediacapture.model.ObservedRequest
 import com.webmediacapture.network.CookieBridge
 import com.webmediacapture.ui.media.MediaLabels
+import com.webmediacapture.ui.player.PlayerActivity
 import com.webmediacapture.util.AppSettings
 import com.webmediacapture.util.ByteFormat
+import com.webmediacapture.util.LibraryFiles
+import com.webmediacapture.util.MediaTitles
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.resume
 
 class BrowserActivity : AppCompatActivity() {
     private val viewModel: BrowserViewModel by viewModels()
@@ -78,16 +98,27 @@ class BrowserActivity : AppCompatActivity() {
     private lateinit var queueEmpty: View
     private lateinit var libraryList: LinearLayout
     private lateinit var libraryEmpty: View
+    private lateinit var librarySortTime: TextView
+    private lateinit var librarySortName: TextView
     private lateinit var historyList: LinearLayout
     private lateinit var historyEmpty: View
+    private lateinit var historyClear: View
     private lateinit var mediaButton: ExtendedFloatingActionButton
     private lateinit var bottomNav: BottomNavigationView
-    private lateinit var hudDownloading: TextView
-    private lateinit var hudLibrary: TextView
     private lateinit var browserUserAgent: String
     private var candidates: List<MediaCandidate> = emptyList()
     private var browseOnPage = false
     private var showingMedia = false
+    private var lastLibraryTasks: List<DownloadEntity> = emptyList()
+    private var lastConverting: Set<String> = emptySet()
+    private var librarySignature = ""
+    private var queueSignature = ""
+    private var pendingExport: DownloadEntity? = null
+    private val thumbLoading = mutableSetOf<String>()
+    private val thumbTriedBucket = mutableMapOf<String, Long>()
+    private var pendingDouyin = false
+    private var douyinTimeout: Job? = null
+    private var douyinPageJob: Job? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,7 +129,7 @@ class BrowserActivity : AppCompatActivity() {
         controller.configure()
         browserUserAgent = controller.userAgent
         controller.webView.addJavascriptInterface(
-            MediaProbeBridge(app.requestObserver, session) { browserUserAgent },
+            MediaProbeBridge(app.requestObserver, session, { browserUserAgent }, viewModel::setPagePoster),
             MEDIA_PROBE_BRIDGE,
         )
         controller.webView.webViewClient = BrowserWebViewClient(
@@ -124,7 +155,11 @@ class BrowserActivity : AppCompatActivity() {
             },
             onPageFinished = { url ->
                 installMediaProbe(url)
-                viewModel.maybeAnalyze(session.current().id, url, cookies.contextFor(url, url, browserUserAgent))
+                if (pendingDouyin && DouyinLinks.isDouyinVideo(url)) {
+                    probeDouyinPage(url)
+                } else {
+                    viewModel.maybeAnalyze(session.current().id, url, cookies.contextFor(url, url, browserUserAgent))
+                }
             },
         )
         controller.webView.webChromeClient = BrowserWebChromeClient(
@@ -178,12 +213,13 @@ class BrowserActivity : AppCompatActivity() {
         queueEmpty = findViewById(R.id.queue_empty)
         libraryList = findViewById(R.id.library_list)
         libraryEmpty = findViewById(R.id.library_empty)
+        librarySortTime = findViewById(R.id.library_sort_time)
+        librarySortName = findViewById(R.id.library_sort_name)
         historyList = findViewById(R.id.home_history_list)
         historyEmpty = findViewById(R.id.home_history_empty)
+        historyClear = findViewById(R.id.home_history_clear)
         mediaButton = findViewById(R.id.fab_media)
         bottomNav = findViewById(R.id.bottom_nav)
-        hudDownloading = findViewById(R.id.hud_downloading_value)
-        hudLibrary = findViewById(R.id.hud_library_value)
     }
 
     private fun bindClicks() {
@@ -224,12 +260,11 @@ class BrowserActivity : AppCompatActivity() {
         val ytdlp = findViewById<SwitchMaterial>(R.id.settings_ytdlp)
         ytdlp.isChecked = AppSettings.autoYtDlp(this)
         ytdlp.setOnCheckedChangeListener { _, checked -> AppSettings.setAutoYtDlp(this, checked) }
-        findViewById<View>(R.id.settings_clear_history).setOnClickListener {
-            lifecycleScope.launch {
-                app.database.history().clear()
-                Snackbar.make(bottomNav, R.string.settings_cleared, Snackbar.LENGTH_SHORT).show()
-            }
-        }
+        findViewById<View>(R.id.settings_clear_history).setOnClickListener { clearHistory() }
+        historyClear.setOnClickListener { clearHistory() }
+        librarySortTime.setOnClickListener { setLibrarySort(false) }
+        librarySortName.setOnClickListener { setLibrarySort(true) }
+        bindLibrarySort()
     }
 
     private fun observeState() {
@@ -253,11 +288,25 @@ class BrowserActivity : AppCompatActivity() {
                             ),
                         )
                         // #endregion
+                        if (pendingDouyin) {
+                            val hit = it.maxWithOrNull(
+                                compareBy<MediaCandidate> { c -> c.durationSec ?: 0.0 }.thenBy { c -> c.height ?: 0 },
+                            )
+                            if (hit != null && viewModel.offerDouyinMedia(hit)) onDouyinQueued()
+                        }
                         if (panelMedia.isVisible) bindMedia()
                     }
                 }
-                launch { viewModel.downloadTasks.collect { bindQueue(it); bindLibrary(it); bindHud(it) } }
+                launch {
+                    combine(viewModel.downloadTasks, viewModel.converting) { tasks, converting ->
+                        tasks to converting
+                    }.collect { (tasks, converting) ->
+                        bindQueue(tasks)
+                        bindLibrary(tasks, converting)
+                    }
+                }
                 launch { viewModel.history.collect(::bindHistory) }
+                launch { viewModel.douyinQueued.collect { onDouyinQueued() } }
             }
         }
     }
@@ -265,8 +314,72 @@ class BrowserActivity : AppCompatActivity() {
     private fun go(raw: String, label: String = raw.trim()) {
         val target = AddressInput.destination(raw, getString(R.string.search_engine_url)) ?: return
         recordHistory(target, label)
+        if (DouyinLinks.isDouyinVideo(target)) {
+            startDouyinCapture(target)
+            return
+        }
         controller.load(target)
         showBrowsePage()
+    }
+
+    private fun startDouyinCapture(target: String) {
+        pendingDouyin = true
+        viewModel.armDouyinCapture()
+        douyinTimeout?.cancel()
+        lifecycleScope.launch {
+            val watch = withContext(Dispatchers.IO) {
+                val location = runCatching {
+                    DouyinExtractor().finalUrl(
+                        target,
+                        cookies.contextFor(target, "https://www.douyin.com/", browserUserAgent),
+                    )
+                }.getOrDefault(target)
+                DouyinLinks.pageUrlForExtract(location)
+            }
+            controller.load(watch)
+            showBrowsePage()
+            Snackbar.make(bottomNav, R.string.douyin_resolving, Snackbar.LENGTH_LONG).show()
+        }
+        douyinTimeout = lifecycleScope.launch {
+            delay(25_000)
+            if (pendingDouyin) {
+                pendingDouyin = false
+                viewModel.disarmDouyinCapture()
+                Snackbar.make(bottomNav, R.string.douyin_parse_failed, Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun probeDouyinPage(url: String) {
+        douyinPageJob?.cancel()
+        douyinPageJob = lifecycleScope.launch {
+            delay(4_000)
+            if (!pendingDouyin) return@launch
+            CookieManager.getInstance().flush()
+            val payload = suspendCancellableCoroutine { cont ->
+                controller.webView.evaluateJavascript(DouyinExtractor.PAGE_PROBE_JS) { result ->
+                    if (cont.isActive) cont.resume(DouyinExtractor.parseJsResult(result))
+                }
+            }
+            viewModel.captureDouyinFromPage(
+                session.current().id,
+                url,
+                cookies.contextFor(url, url, browserUserAgent),
+                payload,
+            )
+        }
+    }
+
+    private fun onDouyinQueued() {
+        if (!pendingDouyin) return
+        pendingDouyin = false
+        douyinTimeout?.cancel()
+        douyinPageJob?.cancel()
+        Snackbar.make(bottomNav, R.string.download_queued, Snackbar.LENGTH_SHORT)
+            .setAction(R.string.tab_queue) { bottomNav.selectedItemId = R.id.nav_queue }
+            .show()
+        showQueue()
+        bottomNav.selectedItemId = R.id.nav_queue
     }
 
     private fun analyzePage() {
@@ -422,20 +535,48 @@ class BrowserActivity : AppCompatActivity() {
     }
 
     private fun bindQueue(items: List<DownloadEntity>) {
-        queueEmpty.isVisible = items.isEmpty()
+        val active = items.filter { it.state != DownloadState.COMPLETED }
+        queueEmpty.isVisible = active.isEmpty()
+        val signature = active.joinToString { "${it.id}|${it.state}|${it.title}|${it.error}" }
+        if (signature == queueSignature && queueList.childCount == active.size) {
+            active.forEachIndexed { index, task ->
+                val row = queueList.getChildAt(index) ?: return@forEachIndexed
+                updateQueueProgress(row, task)
+                bindThumb(row.findViewWithTag(THUMB_TAG), task)
+            }
+            return
+        }
+        queueSignature = signature
         queueList.removeAllViews()
-        items.forEach { task -> queueList.addView(queueRow(task)) }
+        active.forEach { task -> queueList.addView(queueRow(task)) }
     }
 
     private fun queueRow(task: DownloadEntity): View {
-        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
-        column.addView(TextView(this).apply {
-            text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(12))
+            tag = task.id
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val thumb = mediaThumb(task.title)
+        body.addView(thumb)
+        val info = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        info.addView(TextView(this).apply {
+            this.text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
             textSize = 16f
             setTextColor(getColor(R.color.on_surface))
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
         })
-        column.addView(TextView(this).apply {
-            text = queueDetails(task)
+        info.addView(TextView(this).apply {
+            tag = "queue_details"
+            this.text = queueDetails(task)
             textSize = 11f
             typeface = Typeface.MONOSPACE
             setTextColor(getColor(R.color.on_surface_variant))
@@ -443,110 +584,396 @@ class BrowserActivity : AppCompatActivity() {
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.END
             includeFontPadding = false
+            setPadding(0, dp(4), 0, 0)
+        })
+        body.addView(info)
+        column.addView(body)
+        column.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            tag = "queue_progress"
+            max = 10_000
+            progressTintList = ColorStateList.valueOf(getColor(R.color.cyan))
+            progressBackgroundTintList = ColorStateList.valueOf(getColor(R.color.outline))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            )
+                dp(10),
+            ).apply {
+                topMargin = dp(8)
+                bottomMargin = dp(4)
+            }
         })
-        if (task.state in setOf(DownloadState.PREPARING, DownloadState.DOWNLOADING, DownloadState.MERGING, DownloadState.PAUSED)) {
-            column.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                max = 10_000
-                isIndeterminate = task.state == DownloadState.PREPARING && task.progressPercent <= 0
-                progress = (task.progressPercent * 100.0).toInt().coerceIn(0, 10_000)
-                progressTintList = ColorStateList.valueOf(getColor(R.color.cyan))
-                progressBackgroundTintList = ColorStateList.valueOf(getColor(R.color.outline))
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(10),
-                ).apply {
-                    topMargin = dp(8)
-                    bottomMargin = dp(4)
-                }
-            })
-        }
+        updateQueueProgress(column, task)
+        bindThumb(thumb, task)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         if (task.state in setOf(DownloadState.PENDING, DownloadState.PREPARING, DownloadState.DOWNLOADING, DownloadState.MERGING)) {
-            actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = getString(R.string.download_pause)
-                setOnClickListener { viewModel.pauseDownload(task.id) }
+            actions.addView(libraryButton(getString(R.string.download_pause)) {
+                viewModel.pauseDownload(task.id)
             })
         }
         if (task.state in setOf(DownloadState.PAUSED, DownloadState.FAILED)) {
-            actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = getString(R.string.download_resume)
-                setOnClickListener { viewModel.resumeDownload(task.id) }
+            actions.addView(libraryButton(getString(R.string.download_resume)) {
+                viewModel.resumeDownload(task.id)
             })
         }
         if (task.state !in setOf(DownloadState.COMPLETED, DownloadState.CANCELLED)) {
-            actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = getString(R.string.download_cancel)
-                setOnClickListener { viewModel.cancelDownload(task.id) }
+            actions.addView(libraryButton(getString(R.string.download_cancel)) {
+                viewModel.cancelDownload(task.id)
             })
         }
-        actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = getString(R.string.library_delete)
-            setOnClickListener { viewModel.deleteDownload(task.id) }
+        actions.addView(libraryButton(getString(R.string.library_delete)) {
+            viewModel.deleteDownload(task.id)
         })
         column.addView(actions)
         return column
     }
 
-    private fun bindLibrary(items: List<DownloadEntity>) {
-        val completed = items.filter { it.state == DownloadState.COMPLETED }
-        libraryEmpty.isVisible = completed.isEmpty()
-        libraryList.removeAllViews()
-        completed.forEach { task -> libraryList.addView(libraryRow(task)) }
+    private fun updateQueueProgress(row: View, task: DownloadEntity) {
+        row.findViewWithTag<TextView>("queue_details")?.text = queueDetails(task)
+        val bar = row.findViewWithTag<ProgressBar>("queue_progress") ?: return
+        val active = task.state in setOf(DownloadState.PREPARING, DownloadState.DOWNLOADING, DownloadState.MERGING, DownloadState.PAUSED)
+        bar.isVisible = active
+        if (!active) return
+        bar.isIndeterminate = task.state == DownloadState.PREPARING && task.progressPercent <= 0
+        bar.progress = (task.progressPercent * 100.0).toInt().coerceIn(0, 10_000)
     }
 
-    private fun libraryRow(task: DownloadEntity): View {
-        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, dp(12)) }
-        column.addView(TextView(this).apply {
-            text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
+    private fun bindLibrary(items: List<DownloadEntity>, converting: Set<String> = emptySet()) {
+        lastLibraryTasks = items
+        lastConverting = converting
+        val completed = items.filter { it.state == DownloadState.COMPLETED }
+        val sorted = if (AppSettings.librarySortByName(this)) {
+            completed.sortedBy { (it.title ?: "").lowercase() }
+        } else {
+            completed
+        }
+        libraryEmpty.isVisible = sorted.isEmpty()
+        val signature = sorted.joinToString { "${it.id}|${it.title}|${it.outputPath}|${it.error}|${converting.contains(it.id)}" } +
+            AppSettings.librarySortByName(this)
+        if (signature == librarySignature && libraryList.childCount == sorted.size) return
+        librarySignature = signature
+        libraryList.removeAllViews()
+        sorted.forEach { task -> libraryList.addView(libraryRow(task, converting.contains(task.id))) }
+    }
+
+    private fun libraryRow(task: DownloadEntity, converting: Boolean): View {
+        val file = task.outputPath?.let(::File)
+        val missing = file == null || !file.exists()
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(12))
+            tag = task.id
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = !missing
+            isFocusable = !missing
+            if (!missing) setOnClickListener { playFile(task) }
+        }
+        val thumb = mediaThumb(task.title)
+        body.addView(thumb)
+        val text = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        text.addView(TextView(this).apply {
+            this.text = task.title ?: task.mediaUrl.substringAfterLast('/').substringBefore('?')
             textSize = 16f
             setTextColor(getColor(R.color.on_surface))
-        })
-        column.addView(TextView(this).apply {
-            text = task.outputPath ?: getString(R.string.library_missing)
-            textSize = 11f
-            typeface = Typeface.MONOSPACE
-            setTextColor(getColor(R.color.on_surface_variant))
-            maxLines = 1
+            maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
         })
+        val meta = TextView(this).apply {
+            this.text = if (missing) getString(R.string.library_missing) else ByteFormat.format(file.length())
+            textSize = 11f
+            typeface = Typeface.MONOSPACE
+            setTextColor(getColor(if (missing) R.color.error else R.color.on_surface_variant))
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, dp(4), 0, 0)
+        }
+        text.addView(meta)
+        body.addView(text)
+        column.addView(body)
+        if (!task.error.isNullOrBlank() && !converting) {
+            column.addView(TextView(this).apply {
+                this.text = task.error
+                textSize = 12f
+                setTextColor(getColor(R.color.on_surface_variant))
+            })
+        }
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        actions.addView(MaterialButton(this).apply {
-            text = getString(R.string.library_open)
-            setOnClickListener { openFile(task.outputPath) }
+        actions.addView(libraryButton(getString(R.string.library_play), filled = true, enabled = !missing) {
+            playFile(task)
         })
-        actions.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-            text = getString(R.string.library_delete)
-            setOnClickListener { viewModel.deleteDownload(task.id) }
+        actions.addView(libraryButton(getString(R.string.library_more)) { button ->
+            showLibraryMenu(button, task, converting, missing)
         })
         column.addView(actions)
+        bindThumb(thumb, task)
+        file?.takeIf { it.exists() }?.let { media ->
+            lifecycleScope.launch {
+                val info = withContext(Dispatchers.IO) { LibraryMedia.inspect(this@BrowserActivity, task.id, media) }
+                if (column.tag != task.id) return@launch
+                info.thumb?.let { BitmapFactory.decodeFile(it.absolutePath) }?.let {
+                    thumb.setImageBitmap(it)
+                    thumb.setTag(R.id.fab_media, true)
+                }
+                val size = ByteFormat.format(media.length())
+                meta.text = if (info.durationMs != null) {
+                    getString(R.string.library_duration_size, LibraryFiles.duration(info.durationMs), size)
+                } else {
+                    size
+                }
+            }
+        }
         return column
+    }
+
+    private fun libraryButton(
+        label: String,
+        filled: Boolean = false,
+        enabled: Boolean = true,
+        onClick: (MaterialButton) -> Unit,
+    ): MaterialButton {
+        val style = if (filled) com.google.android.material.R.attr.materialButtonStyle else com.google.android.material.R.attr.materialButtonOutlinedStyle
+        return MaterialButton(this, null, style).apply {
+            text = label
+            isEnabled = enabled
+            isAllCaps = false
+            minimumWidth = 0
+            minWidth = 0
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginEnd = dp(8)
+            }
+            setOnClickListener { onClick(this) }
+        }
+    }
+
+    private fun mediaThumb(title: String?): ImageView = ImageView(this).apply {
+        tag = THUMB_TAG
+        scaleType = ImageView.ScaleType.CENTER_CROP
+        background = getDrawable(R.drawable.bg_card)
+        clipToOutline = true
+        contentDescription = title
+        layoutParams = LinearLayout.LayoutParams(dp(120), dp(68)).apply { marginEnd = dp(12) }
+    }
+
+    private fun bindThumb(thumb: ImageView?, task: DownloadEntity) {
+        if (thumb == null || thumb.getTag(R.id.fab_media) == true) return
+        if (showThumb(thumb, LibraryMedia.thumbFile(this, task.id))) return
+        val bucket = task.bytesDownloaded / THUMB_RETRY_BYTES
+        if (thumbTriedBucket[task.id] == bucket) return
+        if (!thumbLoading.add(task.id)) return
+        thumbTriedBucket[task.id] = bucket
+        lifecycleScope.launch {
+            try {
+                var file = withContext(Dispatchers.IO) {
+                    LibraryMedia.preview(this@BrowserActivity, task.id, task.outputPath)
+                }
+                if (file == null || file.length() == 0L) {
+                    delay(1_200)
+                    file = LibraryMedia.thumbFile(this@BrowserActivity, task.id)
+                        .takeIf { it.exists() && it.length() > 0 }
+                }
+                val target = findThumb(task.id) ?: thumb
+                if (target.getTag(R.id.fab_media) != true) showThumb(target, file)
+            } finally {
+                thumbLoading.remove(task.id)
+            }
+        }
+    }
+
+    private fun showThumb(thumb: ImageView, file: File?): Boolean {
+        val src = file?.takeIf { it.exists() && it.length() > 0 } ?: return false
+        val bmp = BitmapFactory.decodeFile(src.absolutePath)
+        if (bmp == null) {
+            src.delete()
+            return false
+        }
+        thumb.setImageBitmap(bmp)
+        thumb.setTag(R.id.fab_media, true)
+        return true
+    }
+
+    private fun findThumb(id: String): ImageView? {
+        sequenceOf(queueList, libraryList).forEach { list ->
+            for (i in 0 until list.childCount) {
+                val row = list.getChildAt(i)
+                if (row.tag == id) return row.findViewWithTag(THUMB_TAG)
+            }
+        }
+        return null
     }
 
     private fun bindHistory(items: List<HistoryEntity>) {
         val unique = items.distinctBy { it.url }.take(12)
         historyEmpty.isVisible = unique.isEmpty()
+        historyClear.isVisible = unique.isNotEmpty()
         historyList.removeAllViews()
         unique.forEach { entry ->
-            historyList.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-                text = entry.title?.takeIf { it.isNotBlank() && it != getString(R.string.app_name) } ?: entry.url
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            row.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                this.text = entry.title?.takeIf { it.isNotBlank() && it != getString(R.string.app_name) } ?: entry.url
                 isAllCaps = false
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = dp(6)
+                }
                 setOnClickListener { go(entry.url, entry.title?.takeIf { it.isNotBlank() } ?: entry.url) }
             })
+            row.addView(MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                this.text = getString(R.string.library_delete)
+                isAllCaps = false
+                minimumWidth = 0
+                minWidth = 0
+                setOnClickListener {
+                    lifecycleScope.launch { app.database.history().deleteUrl(entry.url) }
+                }
+            })
+            historyList.addView(row)
         }
     }
 
-    private fun openFile(path: String?) {
+    private fun clearHistory() {
+        lifecycleScope.launch {
+            app.database.history().clear()
+            Snackbar.make(bottomNav, R.string.settings_cleared, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setLibrarySort(byName: Boolean) {
+        AppSettings.setLibrarySortByName(this, byName)
+        bindLibrarySort()
+        librarySignature = ""
+        bindLibrary(lastLibraryTasks, lastConverting)
+    }
+
+    private fun bindLibrarySort() {
+        val byName = AppSettings.librarySortByName(this)
+        librarySortTime.setTextColor(getColor(if (byName) R.color.on_surface_variant else R.color.cyan))
+        librarySortName.setTextColor(getColor(if (byName) R.color.cyan else R.color.on_surface_variant))
+    }
+
+    private fun playFile(task: DownloadEntity) {
+        val file = task.outputPath?.let(::File)
+        if (file == null || !file.exists()) {
+            Snackbar.make(bottomNav, R.string.library_missing, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        PlayerActivity.start(this, file.absolutePath, task.title)
+    }
+
+    private fun showLibraryMenu(anchor: View, task: DownloadEntity, converting: Boolean, missing: Boolean) {
+        PopupMenu(this, anchor).apply {
+            if (!missing) {
+                menu.add(0, 1, 1, R.string.library_share)
+                menu.add(0, 2, 2, R.string.library_export)
+                menu.add(0, 3, 3, R.string.library_rename)
+                menu.add(0, 4, 4, R.string.library_open_external)
+                if (MediaTitles.needsMp4Convert(task.outputPath)) {
+                    menu.add(0, 5, 5, if (converting) R.string.library_converting else R.string.library_convert)
+                        .isEnabled = !converting
+                }
+            }
+            menu.add(0, 6, 6, R.string.library_delete)
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> shareFile(task)
+                    2 -> exportFile(task)
+                    3 -> renameFile(task)
+                    4 -> openExternal(task.outputPath)
+                    5 -> {
+                        viewModel.convertToMp4(task.id, task.outputPath)
+                        Snackbar.make(bottomNav, R.string.library_convert_started, Snackbar.LENGTH_SHORT).show()
+                    }
+                    6 -> viewModel.deleteDownload(task.id)
+                }
+                true
+            }
+            show()
+        }
+    }
+
+    private fun shareFile(task: DownloadEntity) {
+        val file = task.outputPath?.let(::File)
+        if (file == null || !file.exists()) {
+            Snackbar.make(bottomNav, R.string.library_missing, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+        val mime = LibraryFiles.mime(file.name)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType(mime)
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        send.clipData = ClipData.newRawUri(task.title, uri)
+        startActivity(Intent.createChooser(send, getString(R.string.library_share)))
+    }
+
+    private fun exportFile(task: DownloadEntity) {
+        val file = task.outputPath?.let(::File)
+        if (file == null || !file.exists()) {
+            Snackbar.make(bottomNav, R.string.library_missing, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        if (Build.VERSION.SDK_INT < 29 &&
+            ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingExport = task
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE), REQ_EXPORT)
+            return
+        }
+        lifecycleScope.launch {
+            val uri = withContext(Dispatchers.IO) { LibraryExport.copyToPublic(this@BrowserActivity, file, task.title) }
+            Snackbar.make(
+                bottomNav,
+                if (uri != null) R.string.library_exported else R.string.library_export_failed,
+                Snackbar.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    private fun renameFile(task: DownloadEntity) {
+        val input = EditText(this).apply {
+            setText(task.title ?: "")
+            setTextColor(getColor(R.color.on_surface))
+            setHintTextColor(getColor(R.color.on_surface_variant))
+            setPadding(dp(24), dp(20), dp(24), dp(20))
+            setSelection(text.length)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.library_rename)
+            .setView(input)
+            .setPositiveButton(R.string.library_rename_save) { _, _ ->
+                viewModel.renameDownload(task.id, input.text.toString())
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun openExternal(path: String?) {
         val file = path?.let(::File)
         if (file == null || !file.exists()) {
             Snackbar.make(bottomNav, R.string.library_missing, Snackbar.LENGTH_SHORT).show()
             return
         }
         val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
-        startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "video/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        val mime = LibraryFiles.mime(file.name)
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+        }.onFailure {
+            Snackbar.make(bottomNav, R.string.player_error, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_EXPORT && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            pendingExport?.let(::exportFile)
+        }
+        pendingExport = null
     }
 
     private fun registerServiceWorkerObserver() {
@@ -601,6 +1028,9 @@ class BrowserActivity : AppCompatActivity() {
                 getString(R.string.download_task_progress_unknown, state, downloaded, speed, task.progressPercent)
             }
         }
+        if (task.state == DownloadState.FAILED && !task.error.isNullOrBlank()) {
+            return getString(R.string.download_task_failed, state, task.error)
+        }
         return if (total != null) {
             getString(R.string.download_task_size, state, downloaded, total)
         } else {
@@ -617,19 +1047,6 @@ class BrowserActivity : AppCompatActivity() {
         DownloadState.COMPLETED -> getString(R.string.download_state_completed)
         DownloadState.FAILED -> getString(R.string.download_state_failed)
         DownloadState.CANCELLED -> getString(R.string.download_state_cancelled)
-    }
-
-    private fun bindHud(items: List<DownloadEntity>) {
-        val active = items.count {
-            it.state in setOf(
-                DownloadState.PENDING,
-                DownloadState.PREPARING,
-                DownloadState.DOWNLOADING,
-                DownloadState.MERGING,
-            )
-        }
-        hudDownloading.text = active.toString()
-        hudLibrary.text = items.count { it.state == DownloadState.COMPLETED }.toString()
     }
 
     private fun chip(label: String): TextView = TextView(this).apply {
@@ -652,6 +1069,9 @@ class BrowserActivity : AppCompatActivity() {
 
     companion object {
         private const val MEDIA_PROBE_BRIDGE = "WebMediaCaptureMediaProbe"
+        private const val REQ_EXPORT = 8
+        private const val THUMB_TAG = "thumb"
+        private const val THUMB_RETRY_BYTES = 256 * 1024L
 
         private const val MEDIA_PROBE_SCRIPT = """
             (function() {
@@ -750,6 +1170,24 @@ class BrowserActivity : AppCompatActivity() {
                 if (local && local.length > 1 && local.length < 180) return local;
                 return pageTitle();
               }
+              function absUrl(v) {
+                if (!v) return '';
+                try {
+                  var u = new URL(v, document.baseURI).href;
+                  return /^https?:/i.test(u) ? u : '';
+                } catch (ignore) { return ''; }
+              }
+              function posterOf(el) {
+                var host = el ? mediaParent(el) : null;
+                var local = host && absUrl(host.getAttribute('poster') || host.getAttribute('data-poster'));
+                if (local) return local;
+                var og = document.querySelector('meta[property="og:image"], meta[property="og:image:url"], meta[name="twitter:image"]');
+                return absUrl(og && og.getAttribute('content'));
+              }
+              function reportPoster() {
+                var url = posterOf(null);
+                if (url && window.WebMediaCaptureMediaProbe.poster) window.WebMediaCaptureMediaProbe.poster(url);
+              }
               function report(raw, mime, role, el) {
                 if (!raw || raw.indexOf('blob:') === 0) return;
                 var target;
@@ -762,7 +1200,7 @@ class BrowserActivity : AppCompatActivity() {
                 var marker = target + '|' + (mime || '') + '|' + (role || '') + '|' + duration;
                 if (seen.has(marker)) return;
                 seen.add(marker);
-                window.WebMediaCaptureMediaProbe.report(target, mime || '', role || '', width, height, duration, videoTitle(el));
+                window.WebMediaCaptureMediaProbe.report(target, mime || '', role || '', width, height, duration, videoTitle(el), posterOf(el));
               }
               function inspect(element) {
                 var host = mediaParent(element);
@@ -781,6 +1219,7 @@ class BrowserActivity : AppCompatActivity() {
                 for (var index = 0; index < elements.length; index++) inspect(elements[index]);
               }
               inspectTree(document);
+              reportPoster();
               new MutationObserver(function(records) {
                 records.forEach(function(record) {
                   for (var index = 0; index < record.addedNodes.length; index++) inspectTree(record.addedNodes[index]);

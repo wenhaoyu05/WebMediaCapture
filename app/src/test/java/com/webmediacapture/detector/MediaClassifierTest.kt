@@ -43,6 +43,8 @@ class MediaClassifierTest {
         assertEquals(MediaType.DASH, MediaClassifier.fromUrl("https://cdn.test/manifest.mpd"))
         assertEquals(MediaType.DASH, MediaClassifier.fromUrl("https://cdn.test/play?format=mpd"))
         assertEquals(MediaType.DIRECT, MediaClassifier.fromUrl("https://cdn.test/stream?format=mp4"))
+        assertEquals(MediaType.DIRECT, MediaClassifier.fromUrl("https://v3-web.douyinvod.com/tos/cn/obj/x?a=1"))
+        assertEquals(MediaType.DIRECT, MediaClassifier.fromUrl("https://aweme.snssdk.com/aweme/v1/play/?video_id=x"))
         assertEquals(MediaType.DIRECT, MediaClassifier.fromMime("video/mp4; codecs=avc1"))
         assertEquals(MediaType.DIRECT, MediaClassifier.fromMime("video/webm"))
         assertEquals(MediaType.AUDIO, MediaClassifier.fromMime("audio/aac"))

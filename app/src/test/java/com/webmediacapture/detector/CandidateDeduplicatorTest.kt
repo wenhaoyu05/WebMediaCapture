@@ -33,6 +33,13 @@ class CandidateDeduplicatorTest {
         assertEquals("网页视频名", result.single().title)
     }
 
+    @Test fun mergeKeepsThumbnailUrl() {
+        val old = candidate("https://cdn.test/v.mp4", 40, 360).copy(thumbnailUrl = "https://cdn.test/a.jpg")
+        val incoming = candidate("https://cdn.test/v.mp4", 80, 720)
+        val result = CandidateDeduplicator().merge(listOf(old), incoming)
+        assertEquals("https://cdn.test/a.jpg", result.single().thumbnailUrl)
+    }
+
     @Test fun dropsSegmentsAndOrdersDistinctCandidates() {
         val dedup = CandidateDeduplicator()
         val segment = candidate("https://cdn.test/seg.ts", 99)

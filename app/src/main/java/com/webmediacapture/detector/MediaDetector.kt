@@ -107,6 +107,7 @@ class MediaDetector(probe: NetworkProbe) {
                 source = source,
                 confidence = if (source == DetectionSource.HTTP_PROBE) 90 else 75,
                 role = request.role,
+                thumbnailUrl = request.thumbnailUrl,
             ).also { SafeLog.d("MEDIA", "Candidate created type=${type.name}") }
         }
         return result

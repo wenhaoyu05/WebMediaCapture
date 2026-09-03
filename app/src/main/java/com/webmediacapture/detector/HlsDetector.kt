@@ -141,5 +141,6 @@ class HlsDetector(private val probe: NetworkProbe) {
             width = request.width,
             height = request.height,
             durationSec = request.durationSec,
+            thumbnailUrl = request.thumbnailUrl,
         )
 }

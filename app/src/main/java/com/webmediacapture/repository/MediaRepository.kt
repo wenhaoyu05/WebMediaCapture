@@ -17,6 +17,7 @@ class MediaRepository(private val deduplicator: CandidateDeduplicator = Candidat
     private var currentSessionId: String? = null
     private val rejected = mutableSetOf<String>()
     private var pageTitle: String? = null
+    private var pagePoster: String? = null
 
     @Synchronized
     fun startSession(id: String) {
@@ -24,6 +25,7 @@ class MediaRepository(private val deduplicator: CandidateDeduplicator = Candidat
         currentSessionId = id
         rejected.clear()
         pageTitle = null
+        pagePoster = null
         mutableCandidates.value = emptyList()
         // #region agent log
         AgentDebugLog.emit("A", "MediaRepository.kt:startSession", "session", mapOf("id" to id.take(8), "had" to previous))
@@ -48,12 +50,24 @@ class MediaRepository(private val deduplicator: CandidateDeduplicator = Candidat
     }
 
     @Synchronized
-    fun add(candidate: MediaCandidate) {
-        val named = if (candidate.title.isNullOrBlank()) {
-            candidate.copy(title = pageTitle)
-        } else {
-            candidate.copy(title = com.webmediacapture.util.MediaTitles.prefer(candidate.title, pageTitle))
+    fun applyPoster(url: String?) {
+        val poster = url?.trim()?.takeIf { it.startsWith("http") } ?: return
+        pagePoster = poster
+        mutableCandidates.value = mutableCandidates.value.map { item ->
+            if (item.thumbnailUrl == null) item.copy(thumbnailUrl = poster) else item
         }
+    }
+
+    @Synchronized
+    fun add(candidate: MediaCandidate) {
+        val named = candidate.copy(
+            title = if (candidate.title.isNullOrBlank()) {
+                pageTitle
+            } else {
+                com.webmediacapture.util.MediaTitles.prefer(candidate.title, pageTitle)
+            },
+            thumbnailUrl = candidate.thumbnailUrl ?: pagePoster,
+        )
         if (named.pageSessionId != currentSessionId) {
             // #region agent log
             AgentDebugLog.emit(

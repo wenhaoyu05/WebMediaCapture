@@ -14,4 +14,5 @@ interface HistoryDao {
     @Query("SELECT * FROM history ORDER BY visitedAt DESC LIMIT :limit")
     fun observeRecent(limit: Int = 20): Flow<List<HistoryEntity>>
     @Query("DELETE FROM history") suspend fun clear()
+    @Query("DELETE FROM history WHERE url = :url") suspend fun deleteUrl(url: String)
 }

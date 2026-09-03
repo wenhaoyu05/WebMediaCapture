@@ -19,8 +19,22 @@ class BrowserWebViewClient(
 ) : WebViewClient() {
 
     override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+        if (!WebViewNavigation.shouldLoad(url)) return
         super.onPageStarted(view, url, favicon)
         onPageChanged(session.start(url))
+    }
+
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        if (!request.isForMainFrame) return false
+        return !WebViewNavigation.shouldLoad(request.url.toString())
+    }
+
+    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+        if (!request.isForMainFrame) return
+        val url = request.url.toString()
+        val blocked = !WebViewNavigation.shouldLoad(url) ||
+            error.errorCode == ERROR_UNSUPPORTED_SCHEME
+        if (blocked && view.canGoBack()) view.post { if (view.canGoBack()) view.goBack() }
     }
 
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
@@ -44,6 +58,7 @@ class BrowserWebViewClient(
     }
 
     override fun onPageFinished(view: WebView, url: String) {
+        if (!WebViewNavigation.shouldLoad(url)) return
         super.onPageFinished(view, url)
         onPageFinished(url)
     }

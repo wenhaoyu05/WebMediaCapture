@@ -33,4 +33,22 @@ class AppDatabaseInstrumentedTest {
             database.close()
         }
     }
+
+    @Test
+    fun historyClearAndDeleteUrl() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
+        try {
+            val history = database.history()
+            history.insert(com.webmediacapture.database.HistoryEntity(url = "https://a.test", title = "a"))
+            history.insert(com.webmediacapture.database.HistoryEntity(url = "https://a.test", title = "a2"))
+            history.insert(com.webmediacapture.database.HistoryEntity(url = "https://b.test", title = "b"))
+            history.deleteUrl("https://a.test")
+            assertEquals(listOf("https://b.test"), history.recent().map { it.url })
+            history.clear()
+            assertEquals(emptyList<String>(), history.recent().map { it.url })
+        } finally {
+            database.close()
+        }
+    }
 }

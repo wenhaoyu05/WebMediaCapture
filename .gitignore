@@ -14,3 +14,5 @@ captures/
 /emulator-*.xml
 /ui2.xml
 /wmc_emulator_*.png
+tmp-douyin/
+tmp/
